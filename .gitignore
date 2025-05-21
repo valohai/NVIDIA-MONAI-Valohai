@@ -1,2 +1,9 @@
 liver_dataset/images_Tr/**
 liver_dataset/labels_Tr/**
+liver_dataset/images_Ts/**
+liver_dataset/labels_Ts/**
+checkpoints/best_model.pth
+__pycache__/preprocess.cpython-39.pyc
+__pycache__/preprocess.cpython-310.pyc
+checkpoints/best_model_full.pth
+checkpoints/best_model_weights.pth
