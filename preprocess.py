@@ -5,14 +5,27 @@ import os
 import nibabel as nib
 import numpy as np
 from monai.transforms import (
-    Compose, LoadImaged, EnsureChannelFirstd, Spacingd, 
-    ScaleIntensityd, SaveImaged, EnsureTyped,ResizeWithPadOrCropd
+    AsDiscrete,
+    AsDiscreted,
+    EnsureChannelFirstd,
+    Compose,
+    CropForegroundd,
+    LoadImaged,
+    Orientationd,
+    SaveImaged,
+    ScaleIntensityRanged,
+    Spacingd,
+    Invertd,
+    ResizeWithPadOrCropd,
+    Lambdad
 )
 from monai.data import Dataset, DataLoader, CacheDataset
 from sklearn.model_selection import train_test_split
+from monai.utils import first, set_determinism
 import argparse
+import matplotlib.pyplot as plt
 
-def preprocess_data(data_dir, labels_dir, output_dir,batch_size):
+def preprocess_data(data_dir, labels_dir, output_dir,batch_size,check_sample=False):   
     """
     Preprocess liver segmentation data, split into train/val, and create loaders.
     
@@ -36,50 +49,100 @@ def preprocess_data(data_dir, labels_dir, output_dir,batch_size):
         raise ValueError("No valid image or label files found in the specified directories")
     
     data_dicts = [{"image": img, "label": lbl} for img, lbl in zip(images, labels)]
+
+    set_determinism(seed=0)
     
     # Train/Val split (80/20)
     train_files, val_files = train_test_split(data_dicts, test_size=0.2, random_state=42)
     
     # Define preprocessing transforms
-    transforms = Compose([
-        LoadImaged(keys=["image", "label"]),
-        EnsureChannelFirstd(keys=["image", "label"]),
-        Spacingd(
-            keys=["image", "label"], 
-            pixdim=(1.5, 1.5, 2.0), 
-            mode=("bilinear", "nearest"),
-            align_corners=[True, None]
-        ),
-        ScaleIntensityd(keys=["image"], minv=0.0, maxv=1.0),
-            # Resize or pad to a fixed shape
-        ResizeWithPadOrCropd(keys=["image", "label"], spatial_size=(160, 160, 160)),
-        EnsureTyped(keys=["image", "label"]),
-    ])
+    train_transforms = Compose(
+        [
+            LoadImaged(keys=["image", "label"]),
+            EnsureChannelFirstd(keys=["image", "label"]),
+            ScaleIntensityRanged(
+                keys=["image"],
+                a_min=-57,
+                a_max=164,
+                b_min=0.0,
+                b_max=1.0,
+                clip=True,
+            ),
+            Spacingd(keys=["image", "label"], pixdim=(1.5, 1.5, 2.0), mode=("bilinear", "nearest")),
+            # apply padding to make sure the image and label have the same size
+            Lambdad(keys="label", func=lambda x: np.where(x == 2, 1, x)),  # Map value 2 to 1
+
+            ResizeWithPadOrCropd(keys=["image", "label"], spatial_size=(160, 160, 160)),  # Resize to a fixed size
+
+            
+
+
+            # user can also add other random transforms
+            # RandAffined(
+            #     keys=['image', 'label'],
+            #     mode=('bilinear', 'nearest'),
+            #     prob=1.0, spatial_size=(96, 96, 96),
+            #     rotate_range=(0, 0, np.pi/15),
+            #     scale_range=(0.1, 0.1, 0.1)),
+        ]
+    )
+
+    val_transforms = Compose(
+        [
+            LoadImaged(keys=["image", "label"]),
+            EnsureChannelFirstd(keys=["image", "label"]),
+            ScaleIntensityRanged(
+                keys=["image"],
+                a_min=-57,
+                a_max=164,
+                b_min=0.0,
+                b_max=1.0,
+                clip=True,
+            ),
+            Spacingd(keys=["image", "label"], pixdim=(1.5, 1.5, 2.0), mode=("bilinear", "nearest")),
+            # apply padding to make sure the image and label have the same size
+            Lambdad(keys="label", func=lambda x: np.where(x == 2, 1, x)),  # Map value 2 to 1
+            ResizeWithPadOrCropd(keys=["image", "label"], spatial_size=(160, 160, 160)),  # Resize to a fixed size
+        ]
+    )
+
+    # check transforms in dataloader
+    if check_sample:
+        check_ds = Dataset(data=val_files, transform=val_transforms)
+        check_loader = DataLoader(check_ds, batch_size=1)
+        check_data = first(check_loader)
+        image, label = (check_data["image"][0][0], check_data["label"][0][0])
+        print(f"image shape: {image.shape}, label shape: {label.shape}")
+        
+        # Dynamically select the middle slice of the third dimension
+        slice_idx = 140
+        print(f"Plotting slice index: {slice_idx}")
+        
+        # Plot the image and label
+        plt.figure("check", (12, 6))
+        plt.subplot(1, 2, 1)
+        plt.title("Image")
+        plt.imshow(image[:, :, slice_idx], cmap="gray")
+        plt.axis("off")  # Remove axes for better visualization
+        plt.subplot(1, 2, 2)
+        plt.title("Label")
+        plt.imshow(label[:, :, slice_idx], cmap="jet")  # Use a colormap for labels
+        plt.axis("off")  # Remove axes for better visualization
+        plt.show()
     
     # Use CacheDataset for efficiency if memory allows
-    train_ds = Dataset(data=train_files, transform=transforms)
-    val_ds = Dataset(data=val_files, transform=transforms,)
+    # train_ds = CacheDataset(data=train_files, transform=train_transforms, cache_rate=1.0, num_workers=4)
+    train_ds = Dataset(data=train_files, transform=train_transforms)
+
+    # val_ds = CacheDataset(data=val_files, transform=val_transforms, cache_rate=1.0, num_workers=4)
+    val_ds = Dataset(data=val_files, transform=val_transforms)
     
+    # create DataLoader for training and validation
     train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False)
-    
-    # Run preprocessing (to trigger SaveImaged)
-    print("Processing and saving training data...")
-    for _ in train_loader:
-        # check one sampe data
-        sample = train_loader.dataset[0]
-        print(f"Image shape: {sample['image'].shape}")
-        break
-    print("Processing and saving validation data...")
-    for _ in val_loader:
-        # check one sampe data
-        sample = val_loader.dataset[0]
-        print(f"Image shape val:")
-        print(f"Image shape: {sample['image'].shape}")
-    
-        break
-    
+
     return train_loader, val_loader
+    
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Preprocess liver dataset')
@@ -91,6 +154,8 @@ if __name__ == "__main__":
                         help='Directory to save processed data')
     parser.add_argument('--batch_size', type=int, default=2,
                         help='Batch size for data loading')
+    parser.add_argument('--check_sample', type=bool, default=True,
+                        help='Check sample data after preprocessing')
     
     args = parser.parse_args()
     
@@ -99,5 +164,6 @@ if __name__ == "__main__":
         data_dir=args.data_dir,
         labels_dir=args.labels_dir,
         output_dir=args.output_dir,
-        batch_size=args.batch_size
+        batch_size=args.batch_size,
+        check_sample=args.check_sample
     )
