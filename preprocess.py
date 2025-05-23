@@ -19,7 +19,7 @@ from monai.transforms import (
     ResizeWithPadOrCropd,
     Lambdad
 )
-from monai.data import Dataset, DataLoader, CacheDataset
+from monai.data import Dataset, DataLoader, PersistentDataset
 from sklearn.model_selection import train_test_split
 from monai.utils import first, set_determinism
 import argparse
@@ -87,28 +87,9 @@ def preprocess_data(data_dir, labels_dir, output_dir,batch_size,check_sample=Fal
         ]
     )
 
-    val_transforms = Compose(
-        [
-            LoadImaged(keys=["image", "label"]),
-            EnsureChannelFirstd(keys=["image", "label"]),
-            ScaleIntensityRanged(
-                keys=["image"],
-                a_min=-57,
-                a_max=164,
-                b_min=0.0,
-                b_max=1.0,
-                clip=True,
-            ),
-            Spacingd(keys=["image", "label"], pixdim=(1.5, 1.5, 2.0), mode=("bilinear", "nearest")),
-            # apply padding to make sure the image and label have the same size
-            Lambdad(keys="label", func=lambda x: np.where(x == 2, 1, x)),  # Map value 2 to 1
-            ResizeWithPadOrCropd(keys=["image", "label"], spatial_size=(160, 160, 160)),  # Resize to a fixed size
-        ]
-    )
-
     # check transforms in dataloader
     if check_sample:
-        check_ds = Dataset(data=val_files, transform=val_transforms)
+        check_ds = Dataset(data=val_files, transform=train_transforms)
         check_loader = DataLoader(check_ds, batch_size=1)
         check_data = first(check_loader)
         image, label = (check_data["image"][0][0], check_data["label"][0][0])
@@ -132,14 +113,10 @@ def preprocess_data(data_dir, labels_dir, output_dir,batch_size,check_sample=Fal
     
     # Use CacheDataset for efficiency if memory allows
     # train_ds = CacheDataset(data=train_files, transform=train_transforms, cache_rate=1.0, num_workers=4)
-    train_ds = Dataset(data=train_files, transform=train_transforms)
 
-    # val_ds = CacheDataset(data=val_files, transform=val_transforms, cache_rate=1.0, num_workers=4)
-    val_ds = Dataset(data=val_files, transform=val_transforms)
-    
-    # create DataLoader for training and validation
-    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
-    val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False)
+    cache_dir = '-Valohai-MONAI-Medical-Imaging-\preprocessed_data'
+
+    dataset = PersistentDataset(data=data_dicts, transform=train_transforms, cache_dir=cache_dir)
 
     return train_loader, val_loader
     
