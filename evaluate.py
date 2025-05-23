@@ -5,6 +5,7 @@ import os
 import torch
 import argparse
 from monai.metrics import DiceMetric
+from monai.networks.nets import UNet
 from monai.inferers import sliding_window_inference
 from monai.data import decollate_batch
 from monai.transforms import (
@@ -17,11 +18,18 @@ from monai.transforms import (
     Invertd,
     AsDiscreted,
     Compose,
+    EnsureTyped,
+    Lambdad,
 )
 from monai.data import Dataset, DataLoader
 from monai.handlers.utils import from_engine
 import monai
 import matplotlib.pyplot as plt
+import numpy as np
+
+
+def map_label_values(x):
+        return np.where(x == 2, 1, x)
 
 def evaluate_model(ckpt, data_dir, labels_dir, device, batch_size=1):
     """
@@ -42,12 +50,11 @@ def evaluate_model(ckpt, data_dir, labels_dir, device, batch_size=1):
     labels = sorted([os.path.join(labels_dir, lbl) for lbl in os.listdir(labels_dir)])
     data_dicts = [{"image": img, "label": lbl} for img, lbl in zip(images, labels)]
 
+
     # Validation transforms for original images
     val_org_transforms = Compose([
         LoadImaged(keys=["image", "label"]),
         EnsureChannelFirstd(keys=["image", "label"]),
-        Orientationd(keys=["image"], axcodes="RAS"),
-        Spacingd(keys=["image"], pixdim=(1.5, 1.5, 2.0), mode="bilinear"),
         ScaleIntensityRanged(
             keys=["image"],
             a_min=-57,
@@ -56,21 +63,23 @@ def evaluate_model(ckpt, data_dir, labels_dir, device, batch_size=1):
             b_max=1.0,
             clip=True,
         ),
-        CropForegroundd(keys=["image"], source_key="image"),
+        Spacingd(keys=["image", "label"], pixdim=(1.5, 1.5, 2.0), mode=("bilinear", "nearest")),
+        # apply padding to make sure the image and label have the same size
+        Lambdad(keys="label", func=map_label_values),  # Map value 2 to 1
     ])
 
     # Postprocessing transforms
     post_transforms = Compose([
-        Invertd(
-            keys="pred",
-            transform=val_org_transforms,
-            orig_keys="image",
-            meta_keys="pred_meta_dict",
-            orig_meta_keys="image_meta_dict",
-            meta_key_postfix="meta_dict",
-            nearest_interp=False,
-            to_tensor=True,
-        ),
+        # Invertd(
+        #     keys="pred",
+        #     transform=val_org_transforms,
+        #     orig_keys="image",
+        #     meta_keys="pred_meta_dict",
+        #     orig_meta_keys="image_meta_dict",
+        #     meta_key_postfix="meta_dict",
+        #     nearest_interp=False,
+        #     to_tensor=True,
+        # ),
         AsDiscreted(keys="pred", argmax=True, to_onehot=2),
         AsDiscreted(keys="label", to_onehot=2),
     ])
@@ -80,7 +89,7 @@ def evaluate_model(ckpt, data_dir, labels_dir, device, batch_size=1):
     val_loader = DataLoader(val_ds, batch_size=batch_size, num_workers=4)
 
     # Initialize model
-    model = monai.networks.nets.UNet(
+    model = UNet(
         spatial_dims=3,
         in_channels=1,
         out_channels=2,
@@ -93,15 +102,20 @@ def evaluate_model(ckpt, data_dir, labels_dir, device, batch_size=1):
     dice_metric = DiceMetric(include_background=False, reduction="mean",)
 
     model.load_state_dict(torch.load(os.path.join(ckpt), weights_only=True))
+    model.to(device)
     model.eval()
+    
     with torch.no_grad():
         for val_data in val_loader:
             val_inputs = val_data["image"].to(device)
+            val_labels = val_data["label"].to(device)
             roi_size = (160, 160, 160)
             sw_batch_size = 4
             val_data["pred"] = sliding_window_inference(val_inputs, roi_size, sw_batch_size, model)
             val_data = [post_transforms(i) for i in decollate_batch(val_data)]
             val_outputs, val_labels = from_engine(["pred", "label"])(val_data)
+            val_outputs = [v.to(device) for v in val_outputs]
+            val_labels = [v.to(device) for v in val_labels]
             # compute metric for current iteration
             dice_metric(y_pred=val_outputs, y=val_labels)
 
@@ -130,7 +144,7 @@ if __name__ == "__main__":
     print(f"Using device: {device}")
     
     # Initialize model (adjust architecture to match your trained model)
-    model = monai.networks.nets.UNet(
+    model = UNet(
         spatial_dims=3,
         in_channels=1,
         out_channels=2,

@@ -7,12 +7,17 @@ import nibabel as nib
 import numpy as np
 from monai.transforms import (
     Compose, LoadImaged, EnsureChannelFirstd, Spacingd, 
-    ScaleIntensityd, EnsureTyped, ResizeWithPadOrCropd
+    ScaleIntensityd, EnsureTyped, ResizeWithPadOrCropd,Orientationd,ScaleIntensityRanged,CropForegroundd,Invertd,AsDiscreted,SaveImaged
 )
 from monai.inferers import sliding_window_inference
 from monai.transforms import AsDiscrete
+from monai.data import Dataset, DataLoader
+from monai.data import decollate_batch
+from monai.handlers.utils import from_engine
+import matplotlib.pyplot as plt
+from monai.networks.nets import UNet
 
-def run_inference(model, input_image_path, output_path):
+def run_inference(ckpt, input_image_path, output_path):
     """
     Run inference on a single liver image.
     
@@ -22,46 +27,92 @@ def run_inference(model, input_image_path, output_path):
         output_path (str): Path to save segmentation mask
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # Initialize model
+    model = UNet(
+        spatial_dims=3,
+        in_channels=1,
+        out_channels=2,
+        channels=(16, 32, 64, 128, 256),
+        strides=(2, 2, 2, 2),
+        num_res_units=2,
+    ).to(device)
+
     model.to(device)
     model.eval()
 
     # Define preprocessing transforms
-    transforms = Compose([
-        LoadImaged(keys=["image"]),
-        EnsureChannelFirstd(keys=["image"]),
-        Spacingd(
-            keys=["image"],
-            pixdim=(1.5, 1.5, 2.0),
-            mode="bilinear"
-        ),
-        ScaleIntensityd(keys=["image"], minv=0.0, maxv=1.0),
-        ResizeWithPadOrCropd(keys=["image"], spatial_size=(160, 160, 160)),
-        EnsureTyped(keys=["image"]),
-    ])
+    test_org_transforms = Compose(
+        [
+            LoadImaged(keys="image"),
+            EnsureChannelFirstd(keys="image"),
+            Orientationd(keys=["image"], axcodes="RAS"),
+            Spacingd(keys=["image"], pixdim=(1.5, 1.5, 2.0), mode="bilinear"),
+            ScaleIntensityRanged(
+                keys=["image"],
+                a_min=-57,
+                a_max=164,
+                b_min=0.0,
+                b_max=1.0,
+                clip=True,
+            ),
+            CropForegroundd(keys=["image"], source_key="image", allow_smaller=True),
+        ]
+    )
 
+    post_transforms = Compose(
+        [
+            # Invertd(
+            #     keys="pred",
+            #     transform=test_org_transforms,
+            #     orig_keys="image",
+            #     meta_keys="pred_meta_dict",
+            #     orig_meta_keys="image_meta_dict",
+            #     meta_key_postfix="meta_dict",
+            #     nearest_interp=False,
+            #     to_tensor=True,
+            # ),
+            AsDiscreted(keys="pred", argmax=True, to_onehot=2),
+            SaveImaged(keys="pred", meta_keys="pred_meta_dict", output_dir="./out", output_postfix="seg", resample=False),
+        ]
+    )
     # Prepare input data
-    data = [{"image": input_image_path}]
+    test_data = [{"image": input_image_path}]
     
     # Apply transforms
-    batch_data = transforms(data)
-    inputs = batch_data[0]["image"].unsqueeze(0).to(device)
+    test_org_ds = Dataset(data=test_data, transform=test_org_transforms)
+
+    test_org_loader = DataLoader(test_org_ds, batch_size=1, num_workers=4)
+
 
     # Run inference
-    with torch.no_grad():
-        # Sliding window inference for large volumes
-        roi_size = (160, 160, 160)
-        outputs = sliding_window_inference(
-            inputs, roi_size, 4, model, overlap=0.5
-        )
-        
-        # Post-process outputs
-        post_trans = AsDiscrete(threshold=0.5)
-        mask = post_trans(outputs[0, 0].cpu())
+    model.load_state_dict(torch.load(os.path.join(ckpt), weights_only=True))
+    model.eval()
 
-    # Save segmentation mask
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    mask_nii = nib.Nifti1Image(mask.numpy().astype(np.uint8), np.eye(4))
-    nib.save(mask_nii, output_path)
+    with torch.no_grad():
+        for test_data in test_org_loader:
+            test_inputs = test_data["image"].to(device)
+            roi_size = (160, 160, 160)
+            sw_batch_size = 4
+            test_data["pred"] = sliding_window_inference(test_inputs, roi_size, sw_batch_size, model)
+
+            test_data = [post_transforms(i) for i in decollate_batch(test_data)]
+
+    #         # uncomment the following lines to visualize the predicted results
+
+            from monai.transforms import LoadImage
+            loader = LoadImage()
+            test_output = from_engine(["pred"])(test_data)
+            
+
+            original_image = loader(test_output[0].meta["filename_or_obj"])
+
+            plt.figure("check", (18, 6))
+            plt.subplot(1, 2, 1)
+            plt.imshow(original_image[:, :, 20], cmap="gray")
+            plt.subplot(1, 2, 2)
+            plt.imshow(test_output[0].detach().cpu()[1, :, :, 20])
+            plt.show()
 
 if __name__ == "__main__":
     import argparse

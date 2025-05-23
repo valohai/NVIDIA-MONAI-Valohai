@@ -10,3 +10,5 @@ checkpoints/best_model_weights.pth
 __pycache__/evaluate.cpython-310.pyc
 __pycache__/train.cpython-310.pyc
 checkpoints/best_metirc_model.pth
+__pycache__/inference.cpython-310.pyc
+out/liver_8/liver_8_seg.nii.gz
