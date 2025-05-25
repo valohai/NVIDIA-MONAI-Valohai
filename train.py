@@ -10,10 +10,42 @@ from monai.inferers import sliding_window_inference
 from monai.data import decollate_batch
 from monai.transforms import AsDiscrete, Compose
 from monai.networks.layers import Norm
-
-
 import argparse
-from preprocess import preprocess_data
+from sklearn.model_selection import train_test_split
+from monai.data import DataLoader, Dataset
+from monai.transforms import (
+    LoadImaged, EnsureChannelFirstd,
+    RandRotate90d, RandFlipd,
+    RandScaleIntensityd, RandGaussianNoised
+)
+
+
+def get_data_loaders(data_dir, labels_dir, batch_size=2, val_split=0.2):
+    """
+    Get data loaders for training and validation datasets.
+    
+    Args:
+        data_dir (str): Directory containing input images
+        labels_dir (str): Directory containing label masks
+        batch_size (int): Batch size for training
+        val_split (float): Fraction of data to use for validation
+    
+    Returns:
+        train_loader: DataLoader for training set
+        val_loader: DataLoader for validation set
+    """
+
+
+    images = sorted(os.listdir(data_dir))
+    labels = sorted(os.listdir(labels_dir))
+
+    data_dicts = [{"image": os.path.join(data_dir, img), "label": os.path.join(labels_dir, lbl)}
+                  for img, lbl in zip(images, labels)]
+
+    train_data, val_data = train_test_split(data_dicts, test_size=val_split, random_state=42)
+
+    #Apply only random transforms to training data
+
 
 
 def train_model(train_loader, val_loader, num_epochs=100, learning_rate=1e-4,ckpt_path="checkpoints"):
@@ -33,20 +65,6 @@ def train_model(train_loader, val_loader, num_epochs=100, learning_rate=1e-4,ckp
 
     os.makedirs(ckpt_path, exist_ok=True)
 
-
-
-    # Initialize model
-    # model = SwinUNETR(
-    #     img_size=(160, 160, 160),
-    #     in_channels=1,
-    #     out_channels=2,
-    #     feature_size=48,        # Base feature size
-    #     drop_rate=0.0,         # Dropout rate
-    #     attn_drop_rate=0.0,    # Attention dropout rate
-    #     dropout_path_rate=0.0, # Drop path rate
-    #     use_checkpoint=False    # Use gradient checkpointing to save memory
-    # ).to(device)
-
     model = UNet(
         spatial_dims=3,
         in_channels=1,
@@ -63,8 +81,6 @@ def train_model(train_loader, val_loader, num_epochs=100, learning_rate=1e-4,ckp
     
     # Metric
     dice_metric = DiceMetric(include_background=False, reduction="mean")
-
-    # post processing transforms
     
     # Training loop
     best_metric = -1
@@ -133,11 +149,63 @@ def train_model(train_loader, val_loader, num_epochs=100, learning_rate=1e-4,ckp
 
     return model
 
+def get_data_loaders(data_dir, labels_dir, batch_size=2, val_split=0.2):
+    """
+    Get data loaders for training and validation datasets.
+    
+    Args:
+        data_dir (str): Directory containing input images
+        labels_dir (str): Directory containing label masks
+        batch_size (int): Batch size for training
+        val_split (float): Fraction of data to use for validation
+    
+    Returns:
+        train_loader: DataLoader for training set
+        val_loader: DataLoader for validation set
+    """
+    images = sorted(os.listdir(data_dir))
+    labels = sorted(os.listdir(labels_dir))
+
+    data_dicts = [{"image": os.path.join(data_dir, img), "label": os.path.join(labels_dir, lbl)}
+                  for img, lbl in zip(images, labels)]
+
+    train_data, val_data = train_test_split(data_dicts, test_size=val_split, random_state=42)
+
+    # Define transforms
+    train_transforms = Compose([
+        LoadImaged(keys=["image", "label"]),
+        EnsureChannelFirstd(keys=["image", "label"]),
+        RandRotate90d(keys=["image", "label"], prob=0.5),
+        RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=[0]),
+        RandGaussianNoised(keys=["image"], prob=0.5)
+    ])
+
+    val_transforms = Compose([
+        LoadImaged(keys=["image", "label"]),
+        EnsureChannelFirstd(keys=["image", "label"]),
+    ])
+
+    train_loader = DataLoader(
+        Dataset(data=train_data, transform=train_transforms),
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=4,
+    )
+    
+    val_loader = DataLoader(
+        Dataset(data=val_data, transform=val_transforms),
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=4,
+    )
+
+    return train_loader, val_loader
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train liver segmentation model')
-    parser.add_argument('--data_dir', type=str, default='liver_dataset/images_Tr',
+    parser.add_argument('--data_dir', type=str, default='-Valohai-MONAI-Medical-Imaging-/processed_data/imagesTr',
                         help='Directory containing input images')
-    parser.add_argument('--labels_dir', type=str, default='liver_dataset/labels_Tr',
+    parser.add_argument('--labels_dir', type=str, default='-Valohai-MONAI-Medical-Imaging-/processed_data/labelsTr',
                         help='Directory containing label masks')
     parser.add_argument('--output_dir', type=str, default='processed_data',
                         help='Directory to save processed data')
@@ -151,14 +219,15 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
-    # Get data loaders
-    train_loader, val_loader = preprocess_data(
-        data_dir=args.data_dir,
-        labels_dir=args.labels_dir,
-        output_dir=args.output_dir,
-        batch_size=args.batch_size
-    )
+
+
+
+
+
+    train_loader, val_loader = get_data_loaders(args.data_dir, args.labels_dir, args.batch_size)
+
     
+
     # Train model
     model = train_model(
         train_loader=train_loader,

@@ -12,3 +12,5 @@ __pycache__/train.cpython-310.pyc
 checkpoints/best_metirc_model.pth
 __pycache__/inference.cpython-310.pyc
 out/liver_8/liver_8_seg.nii.gz
+data
+processed_data
