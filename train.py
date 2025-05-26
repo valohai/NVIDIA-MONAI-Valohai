@@ -18,35 +18,8 @@ from monai.transforms import (
     RandRotate90d, RandFlipd,
     RandScaleIntensityd, RandGaussianNoised
 )
-
-
-def get_data_loaders(data_dir, labels_dir, batch_size=2, val_split=0.2):
-    """
-    Get data loaders for training and validation datasets.
-    
-    Args:
-        data_dir (str): Directory containing input images
-        labels_dir (str): Directory containing label masks
-        batch_size (int): Batch size for training
-        val_split (float): Fraction of data to use for validation
-    
-    Returns:
-        train_loader: DataLoader for training set
-        val_loader: DataLoader for validation set
-    """
-
-
-    images = sorted(os.listdir(data_dir))
-    labels = sorted(os.listdir(labels_dir))
-
-    data_dicts = [{"image": os.path.join(data_dir, img), "label": os.path.join(labels_dir, lbl)}
-                  for img, lbl in zip(images, labels)]
-
-    train_data, val_data = train_test_split(data_dicts, test_size=val_split, random_state=42)
-
-    #Apply only random transforms to training data
-
-
+from utils.model import get_model_network
+from utils.transforms import get_transforms
 
 def train_model(train_loader, val_loader, num_epochs=100, learning_rate=1e-4,ckpt_path="checkpoints"):
     """
@@ -65,14 +38,7 @@ def train_model(train_loader, val_loader, num_epochs=100, learning_rate=1e-4,ckp
 
     os.makedirs(ckpt_path, exist_ok=True)
 
-    model = UNet(
-        spatial_dims=3,
-        in_channels=1,
-        out_channels=2,
-        channels=(16, 32, 64, 128, 256),
-        strides=(2, 2, 2, 2),
-        num_res_units=2,
-    ).to(device)
+    model = get_model_network().to(device)
 
 
     # Loss function and optimizer
@@ -87,8 +53,9 @@ def train_model(train_loader, val_loader, num_epochs=100, learning_rate=1e-4,ckp
     best_metric_epoch = -1
     epoch_loss_values = []
     metric_values = []
-    post_pred = Compose([AsDiscrete(argmax=True, to_onehot=2)])
-    post_label = Compose([AsDiscrete(to_onehot=2)])
+    
+    # TODO make dynamic
+    post_transforms = get_transforms('post_transforms')
 
     
     for epoch in range(num_epochs):
@@ -126,8 +93,16 @@ def train_model(train_loader, val_loader, num_epochs=100, learning_rate=1e-4,ckp
                     roi_size = (160, 160, 160)
                     sw_batch_size = 4
                     val_outputs = sliding_window_inference(val_inputs, roi_size, sw_batch_size, model)
-                    val_outputs = [post_pred(i) for i in decollate_batch(val_outputs)]
-                    val_labels = [post_label(i) for i in decollate_batch(val_labels)]
+                    # Create a batch dictionary and apply post transforms
+                    val_batch_data = [{"pred": pred, "label": label} for pred, label 
+                                     in zip(decollate_batch(val_outputs), decollate_batch(val_labels))]
+                    
+                    # Apply post-transforms to the batch data
+                    val_batch_data = [post_transforms(d) for d in val_batch_data]
+                    
+                    # Extract processed predictions and labels for metric computation
+                    val_outputs = [d["pred"] for d in val_batch_data]
+                    val_labels = [d["label"] for d in val_batch_data]
                     # compute metric for current iteration
                     dice_metric(y_pred=val_outputs, y=val_labels)  
 

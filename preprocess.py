@@ -8,7 +8,7 @@ from glob import glob
 import nibabel as nib
 from monai.data import Dataset
 from monai.utils import set_determinism
-from utils import get_transforms
+from utils.transforms import get_transforms
 
 FILE_KEYS = ["image", "label"]
 
@@ -38,7 +38,7 @@ def preprocess_train_val(data_dir, labels_tr, test_dir, labels_ts, output_dir, c
     test_data_dicts = [{"image": img, "label": lbl} for img, lbl in zip(test_images, test_labels)]
 
     preprocess_train = get_transforms('train')
-    
+
 
 
     # Process training data

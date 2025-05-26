@@ -1,6 +1,6 @@
 from monai.transforms import (
     Compose, LoadImaged, EnsureChannelFirstd, ScaleIntensityRanged,
-    Spacingd, EnsureTyped, CropForegroundd, ResizeWithPadOrCropd
+    Spacingd, EnsureTyped, CropForegroundd, ResizeWithPadOrCropd,AsDiscreted, Invertd, SaveImaged
 )
 
 def get_transforms(mode):
@@ -13,10 +13,23 @@ def get_transforms(mode):
     Returns:
         Compose: Composed transforms for the specified mode
     """
+    inference_transform = Compose([
+        LoadImaged(keys=["image"], image_only=False),
+        EnsureChannelFirstd(keys=["image"]),
+        ScaleIntensityRanged(
+            keys=["image"], a_min=-57, a_max=164, b_min=0.0, b_max=1.0, clip=True
+        ),
+        Spacingd(
+            keys=["image"],
+            pixdim=(1.5, 1.5, 2.0),
+            mode="bilinear"
+        ),
+        EnsureTyped(keys=["image"])
+    ])
     
     transforms_dict = {
         'train': Compose([
-            LoadImaged(keys=["image", "label"]),
+            LoadImaged(keys=["image", "label"], image_only=False),
             EnsureChannelFirstd(keys=["image", "label"]),
             ScaleIntensityRanged(
                 keys=["image"], a_min=-57, a_max=164, b_min=0.0, b_max=1.0, clip=True
@@ -26,7 +39,7 @@ def get_transforms(mode):
                 pixdim=(1.5, 1.5, 2.0),
                 mode=("bilinear", "nearest")
             ),
-            CropForegroundd(keys=["image", "label"], source_key="image"),
+            CropForegroundd(keys=["image", "label"], source_key="image", allow_smaller=True),
             # reszie to fixed size 160
             ResizeWithPadOrCropd(
                 keys=["image", "label"],
@@ -36,7 +49,7 @@ def get_transforms(mode):
         ]),
         
         'test': Compose([
-            LoadImaged(keys=["image", "label"]),
+            LoadImaged(keys=["image", "label"],image_only=False),
             EnsureChannelFirstd(keys=["image", "label"]),
             ScaleIntensityRanged(
                 keys=["image"], a_min=-57, a_max=164, b_min=0.0, b_max=1.0, clip=True
@@ -50,7 +63,7 @@ def get_transforms(mode):
         ]),
         
         'inference': Compose([
-            LoadImaged(keys=["image"]),
+            LoadImaged(keys=["image"], image_only=False),
             EnsureChannelFirstd(keys=["image"]),
             ScaleIntensityRanged(
                 keys=["image"], a_min=-57, a_max=164, b_min=0.0, b_max=1.0, clip=True
@@ -60,9 +73,12 @@ def get_transforms(mode):
                 pixdim=(1.5, 1.5, 2.0),
                 mode="bilinear"
             ),
-            CropForegroundd(keys=["image"], source_key="image", allow_smaller=True),
             EnsureTyped(keys=["image"])
-        ])
+        ]),
+        'post_transforms': Compose([
+            AsDiscreted(keys="pred", argmax=True, to_onehot=3),
+            AsDiscreted(keys="label", to_onehot=3),
+        ]),
     }
     
     if mode not in transforms_dict:

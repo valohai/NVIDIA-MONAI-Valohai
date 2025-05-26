@@ -8,30 +8,19 @@ from monai.metrics import DiceMetric
 from monai.networks.nets import UNet
 from monai.inferers import sliding_window_inference
 from monai.data import decollate_batch
-from monai.transforms import (
-    LoadImaged,
-    EnsureChannelFirstd,
-    Orientationd,
-    Spacingd,
-    ScaleIntensityRanged,
-    CropForegroundd,
-    Invertd,
-    AsDiscreted,
-    Compose,
-    EnsureTyped,
-    Lambdad,
-)
 from monai.data import Dataset, DataLoader
+from monai.transforms import (
+    Compose, LoadImaged, EnsureChannelFirstd,
+)
 from monai.handlers.utils import from_engine
-import monai
 import matplotlib.pyplot as plt
 import numpy as np
+from utils.transforms import get_transforms
+from utils.model import get_model_network
 
 
-def map_label_values(x):
-        return np.where(x == 2, 1, x)
 
-def evaluate_model(ckpt, data_dir, labels_dir, device, batch_size=1):
+def evaluate_model(model_path, data_dir, labels_dir, device, batch_size=1):
     """
     Evaluate liver segmentation model performance.
     
@@ -52,56 +41,25 @@ def evaluate_model(ckpt, data_dir, labels_dir, device, batch_size=1):
 
 
     # Validation transforms for original images
-    val_org_transforms = Compose([
+    test_transforms = Compose([
         LoadImaged(keys=["image", "label"]),
         EnsureChannelFirstd(keys=["image", "label"]),
-        ScaleIntensityRanged(
-            keys=["image"],
-            a_min=-57,
-            a_max=164,
-            b_min=0.0,
-            b_max=1.0,
-            clip=True,
-        ),
-        Spacingd(keys=["image", "label"], pixdim=(1.5, 1.5, 2.0), mode=("bilinear", "nearest")),
-        # apply padding to make sure the image and label have the same size
-        Lambdad(keys="label", func=map_label_values),  # Map value 2 to 1
     ])
 
     # Postprocessing transforms
-    post_transforms = Compose([
-        # Invertd(
-        #     keys="pred",
-        #     transform=val_org_transforms,
-        #     orig_keys="image",
-        #     meta_keys="pred_meta_dict",
-        #     orig_meta_keys="image_meta_dict",
-        #     meta_key_postfix="meta_dict",
-        #     nearest_interp=False,
-        #     to_tensor=True,
-        # ),
-        AsDiscreted(keys="pred", argmax=True, to_onehot=2),
-        AsDiscreted(keys="label", to_onehot=2),
-    ])
+    post_transforms = get_transforms('post_transforms')
 
     # Create dataset and dataloader
-    val_ds = Dataset(data=data_dicts, transform=val_org_transforms)
+    val_ds = Dataset(data=data_dicts, transform=test_transforms)
     val_loader = DataLoader(val_ds, batch_size=batch_size, num_workers=4)
 
     # Initialize model
-    model = UNet(
-        spatial_dims=3,
-        in_channels=1,
-        out_channels=2,
-        channels=(16, 32, 64, 128, 256),
-        strides=(2, 2, 2, 2),
-        num_res_units=2,
-    ).to(device)
+    model = get_model_network()
 
     # set up metric
     dice_metric = DiceMetric(include_background=False, reduction="mean",)
 
-    model.load_state_dict(torch.load(os.path.join(ckpt), weights_only=True))
+    model.load_state_dict(torch.load(os.path.join(model_path), weights_only=True))
     model.to(device)
     model.eval()
     
@@ -119,6 +77,11 @@ def evaluate_model(ckpt, data_dir, labels_dir, device, batch_size=1):
             # compute metric for current iteration
             dice_metric(y_pred=val_outputs, y=val_labels)
 
+            print(f"Processed {len(val_outputs)} images in current batch.")
+            #print metric for current batch
+            print("Current batch mean dice: ", dice_metric.aggregate().item())
+        
+
         # aggregate the final mean dice result
         metric_org = dice_metric.aggregate().item()
         # reset the status for next validation round
@@ -128,40 +91,19 @@ def evaluate_model(ckpt, data_dir, labels_dir, device, batch_size=1):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Evaluate liver segmentation model')
-    parser.add_argument('--data_dir', type=str, required=True,
-                        help='Directory containing test images')
-    parser.add_argument('--labels_dir', type=str, required=True,
-                        help='Directory containing test labels')
-    parser.add_argument('--model_path', type=str, required=True,
-                        help='Path to saved model checkpoint')
-    parser.add_argument('--batch_size', type=int, default=1,
-                        help='Batch size for evaluation')
+    parser.add_argument('--data_dir', type=str, default='-Valohai-MONAI-Medical-Imaging-/processed_data/imagesTs')
+    parser.add_argument('--labels_dir', type=str, default='-Valohai-MONAI-Medical-Imaging-/processed_data/labelsTs')
+    parser.add_argument('--model_path', type=str, default='checkpoints/best_metirc_model.pth')
+    parser.add_argument('--batch_size', type=int, default=1)
     
     args = parser.parse_args()
     
-    # Set device
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
-    
-    # Initialize model (adjust architecture to match your trained model)
-    model = UNet(
-        spatial_dims=3,
-        in_channels=1,
-        out_channels=2,
-        channels=(16, 32, 64, 128, 256),
-        strides=(2, 2, 2, 2),
-        num_res_units=2,
-    ).to(device)
-    
-    # Load trained weights
-    model.load_state_dict(torch.load(args.model_path, map_location=device))
     
     # Evaluate model
-    dice_score = evaluate_model(
-        model=model,
+    evaluate_model(
+        model_path=args.model_path,
         data_dir=args.data_dir,
         labels_dir=args.labels_dir,
-        device=device,
-        batch_size=args.batch_size
+        batch_size=args.batch_size,
+        device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
     )
-    print(f"Mean Dice Score: {dice_score:.4f}")
