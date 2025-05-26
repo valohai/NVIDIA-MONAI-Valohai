@@ -178,12 +178,10 @@ def get_data_loaders(data_dir, labels_dir, batch_size=2, val_split=0.2):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train liver segmentation model')
-    parser.add_argument('--data_dir', type=str, default='-Valohai-MONAI-Medical-Imaging-/processed_data/imagesTr',
+    parser.add_argument('--data_dir', type=str, default='processed_data/imagesTr',
                         help='Directory containing input images')
-    parser.add_argument('--labels_dir', type=str, default='-Valohai-MONAI-Medical-Imaging-/processed_data/labelsTr',
-                        help='Directory containing label masks')
-    parser.add_argument('--output_dir', type=str, default='processed_data',
-                        help='Directory to save processed data')
+    parser.add_argument('--labels_dir', type=str, default='processed_data/labelsTr',
+                        help='Directory containing label masks'),
     parser.add_argument('--batch_size', type=int, default=2,
                         help='Batch size for training')
     parser.add_argument('--epochs', type=int, default=10,
