@@ -14,3 +14,4 @@ __pycache__/inference.cpython-310.pyc
 out/liver_8/liver_8_seg.nii.gz
 data
 processed_data
+predictions
