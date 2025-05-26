@@ -10,7 +10,7 @@ from monai.inferers import sliding_window_inference
 from monai.data import Dataset, DataLoader, decollate_batch
 from utils.model import get_model_network
 from utils.transforms import get_transforms
-
+import argparse
 
 def run_inference(ckpt, input_image_path, output_path):
     """
@@ -86,7 +86,7 @@ def run_inference(ckpt, input_image_path, output_path):
 
 
 if __name__ == "__main__":
-    import argparse
+
 
     parser = argparse.ArgumentParser(description='Run liver segmentation inference')
     parser.add_argument('--input_path', type=str, default='liver_201.nii.gz')
