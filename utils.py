@@ -1,25 +1,71 @@
-"""
-Utility functions for liver segmentation project.
-"""
-import os
-import logging
+from monai.transforms import (
+    Compose, LoadImaged, EnsureChannelFirstd, ScaleIntensityRanged,
+    Spacingd, EnsureTyped, CropForegroundd, ResizeWithPadOrCropd
+)
 
-def setup_logging():
+def get_transforms(mode):
     """
-    Set up logging configuration.
-    """
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
-    return logging.getLogger(__name__)
-
-def create_directories(base_path):
-    """
-    Create necessary directories.
+    Get preprocessing transforms for training, testing or inference.
+    
     Args:
-        base_path (str): Base directory path
+        mode (str): 'train', 'test', or 'inference'
+    
+    Returns:
+        Compose: Composed transforms for the specified mode
     """
-    dirs = ['train', 'val', 'test', 'models']
-    for dir_name in dirs:
-        os.makedirs(os.path.join(base_path, dir_name), exist_ok=True)
+    
+    transforms_dict = {
+        'train': Compose([
+            LoadImaged(keys=["image", "label"]),
+            EnsureChannelFirstd(keys=["image", "label"]),
+            ScaleIntensityRanged(
+                keys=["image"], a_min=-57, a_max=164, b_min=0.0, b_max=1.0, clip=True
+            ),
+            Spacingd(
+                keys=["image", "label"],
+                pixdim=(1.5, 1.5, 2.0),
+                mode=("bilinear", "nearest")
+            ),
+            CropForegroundd(keys=["image", "label"], source_key="image"),
+            # reszie to fixed size 160
+            ResizeWithPadOrCropd(
+                keys=["image", "label"],
+                spatial_size=(160, 160, 160),
+            ),
+            EnsureTyped(keys=["image", "label"])
+        ]),
+        
+        'test': Compose([
+            LoadImaged(keys=["image", "label"]),
+            EnsureChannelFirstd(keys=["image", "label"]),
+            ScaleIntensityRanged(
+                keys=["image"], a_min=-57, a_max=164, b_min=0.0, b_max=1.0, clip=True
+            ),
+            Spacingd(
+                keys=["image", "label"],
+                pixdim=(1.5, 1.5, 2.0),
+                mode=("bilinear", "nearest")
+            ),
+            EnsureTyped(keys=["image", "label"])
+        ]),
+        
+        'inference': Compose([
+            LoadImaged(keys=["image"]),
+            EnsureChannelFirstd(keys=["image"]),
+            ScaleIntensityRanged(
+                keys=["image"], a_min=-57, a_max=164, b_min=0.0, b_max=1.0, clip=True
+            ),
+            Spacingd(
+                keys=["image"],
+                pixdim=(1.5, 1.5, 2.0),
+                mode="bilinear"
+            ),
+            CropForegroundd(keys=["image"], source_key="image", allow_smaller=True),
+            EnsureTyped(keys=["image"])
+        ])
+    }
+    
+    if mode not in transforms_dict:
+        raise ValueError(f"Mode '{mode}' not supported. Choose from: {list(transforms_dict.keys())}")
+    
+    return transforms_dict[mode]

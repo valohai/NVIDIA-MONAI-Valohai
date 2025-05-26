@@ -171,7 +171,7 @@ def get_data_loaders(data_dir, labels_dir, batch_size=2, val_split=0.2):
 
     train_data, val_data = train_test_split(data_dicts, test_size=val_split, random_state=42)
 
-    # Define transforms
+    # Define Random transforms
     train_transforms = Compose([
         LoadImaged(keys=["image", "label"]),
         EnsureChannelFirstd(keys=["image", "label"]),
