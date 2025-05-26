@@ -1,0 +1,43 @@
+version: '2'
+
+steps:
+  preprocess:
+    image: python:3.8-slim
+    command: python preprocess.py
+    parameters:
+      - name: input_dir
+        type: string
+        default: liver_dataset
+      - name: output_dir
+        type: string
+        default: processed_data
+
+  train:
+    image: python:3.8-slim
+    command: python train.py
+    parameters:
+      - name: num_epochs
+        type: integer
+        default: 100
+      - name: learning_rate
+        type: float
+        default: 0.001
+
+  evaluate:
+    image: python:3.8-slim
+    command: python evaluate.py
+    parameters:
+      - name: model_path
+        type: string
+        default: models/best_model.pth
+
+  inference:
+    image: python:3.8-slim
+    command: python inference.py
+    parameters:
+      - name: model_path
+        type: string
+        default: models/best_model.pth
+      - name: input_image
+        type: string
+        default: test_image.nii.gz
