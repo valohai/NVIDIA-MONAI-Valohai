@@ -74,7 +74,7 @@ def preprocess_train_val(data_dir, labels_tr, output_dir):
     # Process training data
     process_dataset(
         data_dicts=train_data_dicts,
-        dataset_transform=get_transforms('train'),
+        dataset_transform=get_transforms('main'),
         output_subdir="imagesTr",
         output_dir=output_dir
     )
@@ -82,7 +82,7 @@ def preprocess_train_val(data_dir, labels_tr, output_dir):
     # Process test data
     process_dataset(
         data_dicts=test_data_dicts,
-        dataset_transform=get_transforms('test'),
+        dataset_transform=get_transforms('main'),
         output_subdir="imagesTs",
         output_dir=output_dir
     )

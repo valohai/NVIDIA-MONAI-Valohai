@@ -14,7 +14,7 @@ def get_transforms(mode):
         Compose: Composed transforms for the specified mode
     """
     transforms_dict = {
-        'train': Compose([
+        'main': Compose([
             LoadImaged(keys=["image", "label"], image_only=False),
             EnsureChannelFirstd(keys=["image", "label"]),
             ScaleIntensityRanged(
@@ -33,21 +33,6 @@ def get_transforms(mode):
             ),
             EnsureTyped(keys=["image", "label"])
         ]),
-        
-        'test': Compose([
-            LoadImaged(keys=["image", "label"],image_only=False),
-            EnsureChannelFirstd(keys=["image", "label"]),
-            ScaleIntensityRanged(
-                keys=["image"], a_min=-57, a_max=164, b_min=0.0, b_max=1.0, clip=True
-            ),
-            Spacingd(
-                keys=["image", "label"],
-                pixdim=(1.5, 1.5, 2.0),
-                mode=("bilinear", "nearest")
-            ),
-            EnsureTyped(keys=["image", "label"])
-        ]),
-        
         'inference': Compose([
             LoadImaged(keys=["image"], image_only=False),
             EnsureChannelFirstd(keys=["image"]),
@@ -58,6 +43,10 @@ def get_transforms(mode):
                 keys=["image"],
                 pixdim=(1.5, 1.5, 2.0),
                 mode="bilinear"
+            ),
+            ResizeWithPadOrCropd(
+                keys=["image"],
+                spatial_size=(160, 160, 160),
             ),
             EnsureTyped(keys=["image"])
         ]),

@@ -89,8 +89,7 @@ def evaluate_model(model_path, data_dir, labels_dir, device, batch_size=1):
         dice_metric.reset()
 
     print(json.dumps({
-        "metric": "mean_dice",
-        "value": metric_org
+        "mean_dice": metric_org
     }))
 
 

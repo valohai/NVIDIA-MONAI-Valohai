@@ -154,9 +154,9 @@ def train_model(train_loader, val_loader, num_epochs=100, learning_rate=1e-4,ckp
                 
                 print(json.dumps({
                     "epoch": epoch + 1,
-                    "metric": metric,
-                    "best_metric": best_metric,
-                    "best_metric_epoch": best_metric_epoch
+                    "val_dice": metric,
+                    "best_dice_score": best_metric,
+                    "best_dice_epoch": best_metric_epoch
                 }))
     
     print(f"Training completed, best metric: {best_metric:.4f} at epoch: {best_metric_epoch}")
