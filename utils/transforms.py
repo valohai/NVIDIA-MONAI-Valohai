@@ -44,10 +44,6 @@ def get_transforms(mode):
                 pixdim=(1.5, 1.5, 2.0),
                 mode="bilinear"
             ),
-            ResizeWithPadOrCropd(
-                keys=["image"],
-                spatial_size=(160, 160, 160),
-            ),
             EnsureTyped(keys=["image"])
         ]),
         'post_transforms': Compose([
