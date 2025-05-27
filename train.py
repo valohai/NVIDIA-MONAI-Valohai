@@ -15,7 +15,7 @@ from sklearn.model_selection import train_test_split
 from monai.data import DataLoader, Dataset
 from monai.transforms import (
     LoadImaged, EnsureChannelFirstd,
-    RandRotate90d, RandFlipd, RandGaussianNoised
+    RandRotate90d, RandFlipd, RandGaussianNoised, RandCropByPosNegLabeld
 )
 from utils.model import get_model_network
 from utils.transforms import get_transforms
@@ -189,6 +189,16 @@ def get_data_loaders(data_dir, labels_dir, batch_size=2, val_split=0.2):
     train_transforms = Compose([
         LoadImaged(keys=["image", "label"]),
         EnsureChannelFirstd(keys=["image", "label"]),
+        RandCropByPosNegLabeld(
+            keys=["image", "label"],
+            label_key="label",
+            spatial_size=(160, 160, 160),
+            pos=1,
+            neg=1,
+            num_samples=4,
+            image_key="image",
+            image_threshold=0,
+        ),
         RandRotate90d(keys=["image", "label"], prob=0.5),
         RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=[0]),
         RandGaussianNoised(keys=["image"], prob=0.5)

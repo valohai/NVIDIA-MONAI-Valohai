@@ -26,11 +26,6 @@ def get_transforms(mode):
                 mode=("bilinear", "nearest")
             ),
             CropForegroundd(keys=["image", "label"], source_key="image", allow_smaller=True),
-            # reszie to fixed size 160
-            ResizeWithPadOrCropd(
-                keys=["image", "label"],
-                spatial_size=(160, 160, 160),
-            ),
             EnsureTyped(keys=["image", "label"])
         ]),
         'inference': Compose([

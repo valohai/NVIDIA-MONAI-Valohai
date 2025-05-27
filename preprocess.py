@@ -11,9 +11,30 @@ import shutil
 import valohai
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 
 FILE_KEYS = ["image", "label"]
+
+# Visualize preprocessed image and label
+def visualize_preprocessed_image(image, label, output_path):
+    image_np = image.squeeze()   # Shape: (Z, Y, X)
+    label_np = label.squeeze()
+    # Coronal: find the Y-slice with the most label voxels
+    slice_index = np.argmax(np.sum(label_np, axis=(0, 2)))  # axis=1 is Y
+    # Extract the coronal slice (Z, X)
+    image_slice = image_np[:, slice_index, :]
+    label_slice = label_np[:, slice_index, :]
+    plt.figure(figsize=(12, 6))
+    plt.subplot(1, 2, 1)
+    plt.imshow(image_slice, cmap='gray')
+    plt.title("Coronal CT Slice")
+    plt.subplot(1, 2, 2)
+    plt.imshow(label_slice, cmap='gray')
+    plt.title("Coronal Segmentation")
+    plt.savefig(output_path)    
+
+
 def process_dataset(data_dicts, dataset_transform, output_subdir, output_dir):
     """
     Process a dataset with transforms and save the results.
@@ -46,6 +67,11 @@ def process_dataset(data_dicts, dataset_transform, output_subdir, output_dir):
         # Save the processed files
         nib.save(nib.Nifti1Image(image, image_affine), os.path.join(images_dir, f"{base_name}.gz"))
         nib.save(nib.Nifti1Image(label, label_affine), os.path.join(labels_dir, f"{base_name}.gz"))
+
+        if i < 5:  # Visualize only the first 5 samples
+            visualize_preprocessed_image(image, label, f"/valohai/outputs/sample_{i}.png")
+
+            
     
     print(f"Saved {len(dataset)} samples to {images_dir} and {labels_dir}")
 
