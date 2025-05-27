@@ -11,28 +11,10 @@ import shutil
 import valohai
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
-import matplotlib.pyplot as plt
+from utils.transforms import visualize_preprocessed_image
 
 
 FILE_KEYS = ["image", "label"]
-
-# Visualize preprocessed image and label
-def visualize_preprocessed_image(image, label, output_path):
-    image_np = image.squeeze()   # Shape: (Z, Y, X)
-    label_np = label.squeeze()
-    # Coronal: find the Y-slice with the most label voxels
-    slice_index = np.argmax(np.sum(label_np, axis=(0, 2)))  # axis=1 is Y
-    # Extract the coronal slice (Z, X)
-    image_slice = image_np[:, slice_index, :]
-    label_slice = label_np[:, slice_index, :]
-    plt.figure(figsize=(12, 6))
-    plt.subplot(1, 2, 1)
-    plt.imshow(image_slice, cmap='gray')
-    plt.title("Coronal CT Slice")
-    plt.subplot(1, 2, 2)
-    plt.imshow(label_slice, cmap='gray')
-    plt.title("Coronal Segmentation")
-    plt.savefig(output_path)    
 
 
 def process_dataset(data_dicts, dataset_transform, output_subdir, output_dir):

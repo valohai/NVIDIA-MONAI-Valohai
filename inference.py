@@ -9,11 +9,9 @@ from monai.transforms import (
 from monai.inferers import sliding_window_inference
 from monai.data import Dataset, DataLoader, decollate_batch
 from utils.model import get_model_network
-from utils.transforms import get_transforms
-import matplotlib.pyplot as plt
-import os
-import argparse
+from utils.transforms import get_transforms, visualize_preprocessed_image
 import valohai
+import os
 
 
 
@@ -86,23 +84,19 @@ def run_inference(ckpt, input_image_path, output_path):
             # Apply post transforms (inversion + save)
             for data_dict in batch_data:
                 post_transforms(data_dict)
+
     print(f"Segmentation mask saved to: {output_path}")
 
 
+
+
 if __name__ == "__main__":
-
-
-    parser = argparse.ArgumentParser(description='Run liver segmentation inference')
-    parser.add_argument('--input_path', type=str, default='liver_201.nii.gz')
-    parser.add_argument('--output_path', type=str, default='predictions/')
-    parser.add_argument('--model_path', type=str, default='checkpoints/best_metirc_model.pth')
-    args = parser.parse_args()
-
-
     model = valohai.inputs('model').path(process_archives=False)
     input = valohai.inputs('image').path(process_archives=False)
     output = valohai.outputs().path('/valohai/outputs/predictions')
 
-
-
     run_inference(model, input, output)
+
+
+
+

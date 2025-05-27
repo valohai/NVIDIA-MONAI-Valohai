@@ -1,7 +1,10 @@
 from monai.transforms import (
     Compose, LoadImaged, EnsureChannelFirstd, ScaleIntensityRanged,
-    Spacingd, EnsureTyped, CropForegroundd, ResizeWithPadOrCropd,AsDiscreted, Invertd, SaveImaged
+    Spacingd, EnsureTyped, CropForegroundd,AsDiscreted
 )
+import matplotlib.pyplot as plt
+import numpy as np
+
 
 def get_transforms(mode):
     """
@@ -51,3 +54,23 @@ def get_transforms(mode):
         raise ValueError(f"Mode '{mode}' not supported. Choose from: {list(transforms_dict.keys())}")
     
     return transforms_dict[mode]
+
+
+# Visualize preprocessed image and label
+def visualize_preprocessed_image(image, label, output_path):
+    image_np = image.squeeze()   # Shape: (Z, Y, X)
+    label_np = label.squeeze()
+    # Coronal: find the Y-slice with the most label voxels
+    slice_index = np.argmax(np.sum(label_np, axis=(0, 2)))  # axis=1 is Y
+    # Extract the coronal slice (Z, X)
+    image_slice = image_np[:, slice_index, :]
+    label_slice = label_np[:, slice_index, :]
+    plt.figure(figsize=(12, 6))
+    plt.subplot(1, 2, 1)
+    plt.imshow(image_slice, cmap='gray')
+    plt.title("Coronal CT Slice")
+    plt.subplot(1, 2, 2)
+    plt.imshow(label_slice, cmap='gray')
+    plt.title("Coronal Segmentation")
+    plt.savefig(output_path)    
+    plt.close()
