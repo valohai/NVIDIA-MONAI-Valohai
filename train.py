@@ -78,7 +78,9 @@ def train_model(train_loader, val_loader, num_epochs=100, learning_rate=1e-4,ckp
 
     
     for epoch in range(num_epochs):
-        print(f"\nEpoch {epoch + 1}/{num_epochs}")
+        print(json.dumps({
+            "epochs": epoch + 1,
+        }))
         model.train()
         epoch_loss = 0
         step = 0
@@ -100,6 +102,10 @@ def train_model(train_loader, val_loader, num_epochs=100, learning_rate=1e-4,ckp
         epoch_loss_values.append(epoch_loss)
 
         print(f"epoch {epoch + 1} average loss: {epoch_loss:.4f}")
+        print(json.dumps({
+            "epoch": epoch + 1,
+            "loss": epoch_loss
+        }))
         
         # Validation
         if (epoch + 1) % 5 == 0:
@@ -144,9 +150,14 @@ def train_model(train_loader, val_loader, num_epochs=100, learning_rate=1e-4,ckp
                     }
                     with open(f"{model_output_path}.metadata.json", "w") as f:
                         json.dump(file_metadata, f)
-                                        
-                print(f"current epoch: {epoch + 1} current mean dice: {metric:.4f}"
-                      f"\nbest mean dice: {best_metric:.4f} at epoch: {best_metric_epoch}")
+                                    
+                
+                print(json.dumps({
+                    "epoch": epoch + 1,
+                    "metric": metric,
+                    "best_metric": best_metric,
+                    "best_metric_epoch": best_metric_epoch
+                }))
     
     print(f"Training completed, best metric: {best_metric:.4f} at epoch: {best_metric_epoch}")
 

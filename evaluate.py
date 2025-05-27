@@ -18,6 +18,7 @@ from utils.transforms import get_transforms
 from utils.model import get_model_network
 import valohai
 import shutil
+import json
 
 def evaluate_model(model_path, data_dir, labels_dir, device, batch_size=1):
     """
@@ -76,9 +77,10 @@ def evaluate_model(model_path, data_dir, labels_dir, device, batch_size=1):
             # compute metric for current iteration
             dice_metric(y_pred=val_outputs, y=val_labels)
 
-            print(f"Processed {len(val_outputs)} images in current batch.")
-            #print metric for current batch
-            print("Current batch mean dice: ", dice_metric.aggregate().item())
+
+            print(json.dumps({
+                "current_batch_mean_dice": dice_metric.aggregate().item()
+            }))
         
 
         # aggregate the final mean dice result
@@ -86,14 +88,18 @@ def evaluate_model(model_path, data_dir, labels_dir, device, batch_size=1):
         # reset the status for next validation round
         dice_metric.reset()
 
-    print("Metric on original image spacing: ", metric_org)
+    print(json.dumps({
+        "metric": "mean_dice",
+        "value": metric_org
+    }))
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Evaluate liver segmentation model')
     parser.add_argument('--data_dir', type=str, default='-Valohai-MONAI-Medical-Imaging-/processed_data/imagesTs')
     parser.add_argument('--labels_dir', type=str, default='-Valohai-MONAI-Medical-Imaging-/processed_data/labelsTs')
     parser.add_argument('--model_path', type=str, default='checkpoints/best_metirc_model.pth')
-    parser.add_argument('--batch_size', type=int, default=1)
+    parser.add_argument('--batch_size', type=int, default=2)
     
     args = parser.parse_args()
 

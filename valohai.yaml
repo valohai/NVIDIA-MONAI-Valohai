@@ -71,7 +71,11 @@
         override:
           inputs:
             - name: preprocessed_data
+      - name: inference
+        type: execution
+        step: inference
     edges:
       - [preprocess.outputs.*.zip, train.input.preprocessed_data]
       - [preprocess.outputs.*.zip, evaluate.input.preprocessed_data]
       - [train.outputs.*.pth, evaluate.input.model]
+      - [train.outputs.*.pth, inference.input.model]

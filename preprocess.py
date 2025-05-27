@@ -95,7 +95,6 @@ def preprocess_train_val(data_dir, labels_tr, output_dir):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Preprocess liver dataset (Train/Val + Test)")
     parser.add_argument('--output_dir', type=str, default='processed_data')
-    parser.add_argument('--check_sample', type=bool, default=False)
     args = parser.parse_args()
 
 

@@ -16,68 +16,6 @@ import argparse
 import valohai
 
 
-def save_overlay_slices(volume, mask, output_dir=None, axis=1):
-    """
-    Save overlay slices of the volume and mask.
-    
-    Args:
-        volume (np.ndarray): Input volume
-        mask (np.ndarray): Segmentation mask
-        output_dir (str): Directory to save overlays (default: valohai outputs)
-        axis (int): Axis to slice along (default: 2 for [H,W,D] format)
-    """
-    # Set default output directory
-    if output_dir is None:
-        output_dir = "/valohai/outputs/pred_overlays"
-    
-    # Create output directory
-    os.makedirs(output_dir, exist_ok=True)
-    
-    # Print the shapes for debugging
-    print(f"Volume shape: {volume.shape}")
-    print(f"Mask shape: {mask.shape}")
-    
-    # Handle different dimension formats
-    if len(volume.shape) == 5:  # [B,C,H,W,D]
-        volume = volume[0, 0]   # Take first batch, first channel
-    elif len(volume.shape) == 4:  # [C,H,W,D]
-        volume = volume[0]      # Take first channel
-        
-    if len(mask.shape) == 5:    # [B,C,H,W,D]
-        mask = mask[0, 0]
-    elif len(mask.shape) == 4:  # [C,H,W,D]
-        mask = mask[0]
-    
-    # Confirm final shapes after processing
-    print(f"Processed volume shape: {volume.shape}")
-    print(f"Processed mask shape: {mask.shape}")
-    
-    # Get the number of slices along the specified axis
-    num_slices = volume.shape[axis]
-    print(f"Saving {num_slices} slices along axis {axis}")
-    
-    # Save each slice
-    for i in range(num_slices):
-        # Extract 2D slices properly
-        if axis == 0:
-            img_slice = volume[i, :, :]
-            mask_slice = mask[i, :, :]
-        elif axis == 1:
-            img_slice = volume[:, i, :]
-            mask_slice = mask[:, i, :]
-        else:  # axis == 2
-            img_slice = volume[:, :, i]
-            mask_slice = mask[:, :, i]
-        
-        # Create overlay image
-        plt.figure(figsize=(6, 6))
-        plt.imshow(img_slice, cmap="gray")
-        plt.imshow(mask_slice, cmap="Reds", alpha=0.4)
-        plt.axis('off')
-        plt.savefig("/valohai/outputs/pred_overlays/overlay_slice_{}.png".format(i), bbox_inches='tight', pad_inches=0)
-        plt.close()
-    
-    print(f"Saved {num_slices} overlay images to {output_dir}")
 
 def run_inference(ckpt, input_image_path, output_path):
     """
@@ -148,14 +86,6 @@ def run_inference(ckpt, input_image_path, output_path):
             # Apply post transforms (inversion + save)
             for data_dict in batch_data:
                 post_transforms(data_dict)
-
-            # Save overlay slices
-            # save_overlay_slices(
-            #     data_dict["image"].cpu().numpy(),
-            #     data_dict["pred"].cpu().numpy(),
-            # )
-
-
     print(f"Segmentation mask saved to: {output_path}")
 
 
