@@ -13,20 +13,6 @@ def get_transforms(mode):
     Returns:
         Compose: Composed transforms for the specified mode
     """
-    inference_transform = Compose([
-        LoadImaged(keys=["image"], image_only=False),
-        EnsureChannelFirstd(keys=["image"]),
-        ScaleIntensityRanged(
-            keys=["image"], a_min=-57, a_max=164, b_min=0.0, b_max=1.0, clip=True
-        ),
-        Spacingd(
-            keys=["image"],
-            pixdim=(1.5, 1.5, 2.0),
-            mode="bilinear"
-        ),
-        EnsureTyped(keys=["image"])
-    ])
-    
     transforms_dict = {
         'train': Compose([
             LoadImaged(keys=["image", "label"], image_only=False),

@@ -24,6 +24,24 @@ import valohai
 import shutil
 import json
 
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='Train liver segmentation model')
+    parser.add_argument('--data_dir', type=str, default='processed_data/imagesTr',
+                        help='Directory containing input images')
+    parser.add_argument('--labels_dir', type=str, default='processed_data/labelsTr',
+                        help='Directory containing label masks'),
+    parser.add_argument('--batch_size', type=int, default=2,
+                        help='Batch size for training')
+    parser.add_argument('--epochs', type=int, default=10,
+                        help='Number of training epochs')
+    parser.add_argument('--lr', type=float, default=1e-4,
+                        help='Learning rate')
+    parser.add_argument('--ckpt',type=str,default='checkpoints',help='checkpoint directory')
+    return parser.parse_args()
+
+
+
 def train_model(train_loader, val_loader, num_epochs=100, learning_rate=1e-4,ckpt_path="checkpoints"):
     """
     Train liver segmentation model.
@@ -78,7 +96,7 @@ def train_model(train_loader, val_loader, num_epochs=100, learning_rate=1e-4,ckp
             optimizer.step()
             
             epoch_loss += loss.item()
-            print(f"{step}/{len(train_loader)}, train_loss: {loss.item():.4f}")
+            print(f"{step}/{len(train_loader)}, train_loss: {loss.item():.4f}, val_loss: {epoch_loss / step:.4f}", end='\r')
             
         epoch_loss /= step
         epoch_loss_values.append(epoch_loss)
@@ -189,20 +207,8 @@ def get_data_loaders(data_dir, labels_dir, batch_size=2, val_split=0.2):
     return train_loader, val_loader
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Train liver segmentation model')
-    parser.add_argument('--data_dir', type=str, default='processed_data/imagesTr',
-                        help='Directory containing input images')
-    parser.add_argument('--labels_dir', type=str, default='processed_data/labelsTr',
-                        help='Directory containing label masks'),
-    parser.add_argument('--batch_size', type=int, default=2,
-                        help='Batch size for training')
-    parser.add_argument('--epochs', type=int, default=10,
-                        help='Number of training epochs')
-    parser.add_argument('--lr', type=float, default=1e-4,
-                        help='Learning rate')
-    parser.add_argument('--ckpt',type=str,default='checkpoints',help='checkpoint directory')
     
-    args = parser.parse_args()
+    args = parse_args()
     
 
 

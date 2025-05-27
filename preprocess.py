@@ -1,6 +1,4 @@
-"""
-Module for preprocessing liver segmentation data, including training and test sets.
-"""
+
 import os
 import argparse
 import numpy as np
@@ -11,28 +9,58 @@ from monai.utils import set_determinism
 from utils.transforms import get_transforms
 import shutil
 import valohai
+from sklearn.model_selection import train_test_split
+from tqdm import tqdm
+
 
 FILE_KEYS = ["image", "label"]
-
-def preprocess_train_val(data_dir, labels_tr, test_dir, labels_ts, output_dir, check_sample=False):
+def process_dataset(data_dicts, dataset_transform, output_subdir, output_dir):
+    """
+    Process a dataset with transforms and save the results.
     
+    Args:
+        data_dicts (list): List of dictionaries with image and label paths
+        dataset_transform: MONAI transforms to apply
+        output_subdir (str): Subdirectory name for images/labels (e.g., 'imagesTr')
+        output_dir (str): Base output directory
+    """
+    dataset = Dataset(data=data_dicts, transform=dataset_transform)
     
-    # Process training data
+    # Create output directories if they don't exist
+    images_dir = os.path.join(output_dir, output_subdir)
+    labels_dir = os.path.join(output_dir, output_subdir.replace('images', 'labels'))
+    os.makedirs(images_dir, exist_ok=True)
+    os.makedirs(labels_dir, exist_ok=True)
+    
+    print(f"Processing {len(dataset)} samples for {output_subdir}...")
+    for i, sample in enumerate(tqdm(dataset, desc=f"Processing {output_subdir}", unit="sample")):
+        base_name = os.path.splitext(os.path.basename(data_dicts[i]["image"]))[0]
 
+        image = sample["image"].detach().cpu().numpy().squeeze()
+        label = sample["label"].detach().cpu().numpy().squeeze().astype(np.int16)
 
-    train_images = sorted(glob(os.path.join(data_dir, '*.nii*')))
-    train_labels = sorted(glob(os.path.join(labels_tr, '*.nii*')))
+        # Use affine from MONAI transform metadata
+        image_affine = sample["image_meta_dict"]["affine"]
+        label_affine = sample["label_meta_dict"]["affine"]
 
-    if not train_images or not train_labels:
+        # Save the processed files
+        nib.save(nib.Nifti1Image(image, image_affine), os.path.join(images_dir, f"{base_name}.gz"))
+        nib.save(nib.Nifti1Image(label, label_affine), os.path.join(labels_dir, f"{base_name}.gz"))
+    
+    print(f"Saved {len(dataset)} samples to {images_dir} and {labels_dir}")
+
+def preprocess_train_val(data_dir, labels_tr, output_dir):    
+    # Process training and test data
+    volumes = sorted(glob(os.path.join(data_dir, '*.nii*')))
+    masks = sorted(glob(os.path.join(labels_tr, '*.nii*')))
+
+    if not volumes or not masks:
         raise ValueError("No valid training image or label files found.")
 
-    # Process test data
-    test_images = sorted(glob(os.path.join(test_dir, '*.nii*')))
-    test_labels = sorted(glob(os.path.join(labels_ts, '*.nii*')))
-
-    if not test_images or not test_labels:
-        raise ValueError("No valid test image or label files found.")
-
+    # spit train_images to train and test sets
+    train_images, test_images, train_labels, test_labels = train_test_split(
+        volumes, masks, test_size=0.1, random_state=42
+    )
     # Create output directories
     os.makedirs(os.path.join(output_dir, "imagesTr"), exist_ok=True)
     os.makedirs(os.path.join(output_dir, "labelsTr"), exist_ok=True)
@@ -43,43 +71,23 @@ def preprocess_train_val(data_dir, labels_tr, test_dir, labels_ts, output_dir, c
     train_data_dicts = [{"image": img, "label": lbl} for img, lbl in zip(train_images, train_labels)]
     test_data_dicts = [{"image": img, "label": lbl} for img, lbl in zip(test_images, test_labels)]
 
-    preprocess_train = get_transforms('train')
-
-
-
     # Process training data
-    train_dataset = Dataset(data=train_data_dicts, transform=preprocess_train)
-    for i, sample in enumerate(train_dataset):
-        base_name = os.path.splitext(os.path.basename(train_data_dicts[i]["image"]))[0]
-
-        image = sample["image"].detach().cpu().numpy().squeeze()
-        label = sample["label"].detach().cpu().numpy().squeeze().astype(np.int16)
-
-        # Use affine from MONAI transform metadata
-        image_affine = sample["image_meta_dict"]["affine"]
-        label_affine = sample["label_meta_dict"]["affine"]
-
-        nib.save(nib.Nifti1Image(image, image_affine), os.path.join(output_dir, "imagesTr", f"{base_name}.gz"))
-        nib.save(nib.Nifti1Image(label, label_affine), os.path.join(output_dir, "labelsTr", f"{base_name}.gz"))
-
-    preprocess_test = get_transforms('test')
+    process_dataset(
+        data_dicts=train_data_dicts,
+        dataset_transform=get_transforms('train'),
+        output_subdir="imagesTr",
+        output_dir=output_dir
+    )
+    
     # Process test data
-    test_dataset = Dataset(data=test_data_dicts, transform=preprocess_test)
-    for i, sample in enumerate(test_dataset):
-        base_name = os.path.splitext(os.path.basename(test_data_dicts[i]["image"]))[0]
-
-        image = sample["image"].detach().cpu().numpy().squeeze()
-        label = sample["label"].detach().cpu().numpy().squeeze().astype(np.int16)
-
-        # Use affine from MONAI transform metadata
-        image_affine = sample["image_meta_dict"]["affine"]
-        label_affine = sample["label_meta_dict"]["affine"]
-
-        nib.save(nib.Nifti1Image(image, image_affine), os.path.join(output_dir, "imagesTs", f"{base_name}.gz"))
-        nib.save(nib.Nifti1Image(label, label_affine), os.path.join(output_dir, "labelsTs", f"{base_name}.gz"))
+    process_dataset(
+        data_dicts=test_data_dicts,
+        dataset_transform=get_transforms('test'),
+        output_subdir="imagesTs",
+        output_dir=output_dir
+    )
 
     #Get output file and folder path
-
     zip_output_path = valohai.outputs().path('/valohai/outputs/preprocessed')
     shutil.make_archive(zip_output_path, 'zip', output_dir)
     
@@ -104,33 +112,26 @@ if __name__ == "__main__":
         raise ValueError(f"Dataset archive {dataset_archive} does not exist.")
     
     print(f"Extracting {dataset_archive} to {extract_dir}")
-    shutil.unpack_archive(dataset_archive, extract_dir=extract_dir, format='zip')
+    shutil.unpack_archive(dataset_archive, extract_dir=extract_dir, format='tar')
     
     # Set paths to the extracted data folders
-    data_dir = os.path.join(extract_dir, "data_min", "imagesTr")
-    labels_tr = os.path.join(extract_dir, "data_min", "labelsTr")
-    test_dir = os.path.join(extract_dir, "data_min", "imagesTs")
-    labels_ts = os.path.join(extract_dir, "data_min", "labelsTs")
-    
+    # Find paths to required directories
+    imagesTr_path = glob(os.path.join(extract_dir, "**", "imagesTr"), recursive=True)
+    labelsTr_path = glob(os.path.join(extract_dir, "**", "labelsTr"), recursive=True)
+
+
+    if not imagesTr_path or not labelsTr_path:
+        raise FileNotFoundError("imagesTr or labelsTr folder not found in extracted dataset.")
+
     # Create output directory
     output_dir = os.path.join(os.getcwd(), args.output_dir)
     os.makedirs(output_dir, exist_ok=True)
     
     set_determinism(seed=0)
     
-    print(f"Processing data from {data_dir}")
-    print(f"Training labels from {labels_tr}")
-    print(f"Test data from {test_dir}")
-    print(f"Test labels from {labels_ts}")
-
-
-    set_determinism(seed=0)
 
     preprocess_train_val(
-        data_dir=data_dir,
-        labels_tr=labels_tr,
-        test_dir = test_dir,
-        labels_ts = labels_ts,
-        output_dir=output_dir,
-        check_sample=args.check_sample
+        data_dir=imagesTr_path[0],
+        labels_tr=labelsTr_path[0],
+        output_dir=output_dir
     )
