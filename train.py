@@ -15,8 +15,7 @@ from sklearn.model_selection import train_test_split
 from monai.data import DataLoader, Dataset
 from monai.transforms import (
     LoadImaged, EnsureChannelFirstd,
-    RandRotate90d, RandFlipd,
-    RandScaleIntensityd, RandGaussianNoised
+    RandRotate90d, RandFlipd, RandGaussianNoised
 )
 from utils.model import get_model_network
 from utils.transforms import get_transforms
@@ -75,7 +74,6 @@ def train_model(train_loader, val_loader, num_epochs=100, learning_rate=1e-4,ckp
     epoch_loss_values = []
     metric_values = []
     
-    # TODO make dynamic
     post_transforms = get_transforms('post_transforms')
 
     
