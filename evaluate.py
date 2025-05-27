@@ -14,11 +14,10 @@ from monai.transforms import (
 )
 from monai.handlers.utils import from_engine
 import matplotlib.pyplot as plt
-import numpy as np
 from utils.transforms import get_transforms
 from utils.model import get_model_network
-
-
+import valohai
+import shutil
 
 def evaluate_model(model_path, data_dir, labels_dir, device, batch_size=1):
     """
@@ -97,13 +96,29 @@ if __name__ == "__main__":
     parser.add_argument('--batch_size', type=int, default=1)
     
     args = parser.parse_args()
+
+    model = valohai.inputs('model').path(process_archives=False)
+
+    preprocessed_data_archive = valohai.inputs('preprocessed_data').path(process_archives=False)
+
+    # create extraction directory
+    extract_dir = os.path.join(os.path.dirname(preprocessed_data_archive), "extracted_data")
+    os.makedirs(extract_dir, exist_ok=True)
+
+    #unzip the preprocessed data
+    shutil.unpack_archive(preprocessed_data_archive, extract_dir, format='zip')
+
+    # Set data directories
+    data_dir = os.path.join(extract_dir, "imagesTs")
+    labels_dir = os.path.join(extract_dir, "labelsTs")
+
     
     
     # Evaluate model
     evaluate_model(
-        model_path=args.model_path,
-        data_dir=args.data_dir,
-        labels_dir=args.labels_dir,
+        model_path=model,
+        data_dir=data_dir,
+        labels_dir=labels_dir,
         batch_size=args.batch_size,
         device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
     )

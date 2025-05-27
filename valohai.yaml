@@ -1,43 +1,66 @@
-version: '2'
-
-steps:
-  preprocess:
-    image: python:3.8-slim
-    command: python preprocess.py
-    parameters:
-      - name: input_dir
-        type: string
-        default: liver_dataset
-      - name: output_dir
-        type: string
-        default: processed_data
-
-  train:
-    image: python:3.8-slim
-    command: python train.py
-    parameters:
-      - name: num_epochs
-        type: integer
-        default: 100
-      - name: learning_rate
-        type: float
-        default: 0.001
-
-  evaluate:
-    image: python:3.8-slim
-    command: python evaluate.py
-    parameters:
-      - name: model_path
-        type: string
-        default: models/best_model.pth
-
-  inference:
-    image: python:3.8-slim
-    command: python inference.py
-    parameters:
-      - name: model_path
-        type: string
-        default: models/best_model.pth
-      - name: input_image
-        type: string
-        default: test_image.nii.gz
+- step:
+    name: preprocess
+    image: docker.io/python:3.10
+    environment: pro-trial-prod-oci-vm-gpu-a10-1
+    command:
+      - pip install -r requirements.txt
+      - python preprocess.py
+    inputs:
+      - name: dataset
+        default: datum://01971114-4283-35d7-214c-7e415adf1fe4
+- step:
+    name: train
+    image: docker.io/python:3.10
+    environment: pro-trial-prod-oci-vm-gpu-a10-1
+    command:
+      - pip install -r requirements.txt
+      - python train.py
+    inputs:
+      - name: preprocessed_data
+        default: datum://0197111f-3130-18bc-9bb2-49c7d6805e26
+- step:
+    name: evaluate
+    image: docker.io/python:3.10
+    environment: pro-trial-prod-oci-vm-gpu-a10-1
+    command:
+      - pip install -r requirements.txt
+      - python evaluate.py
+    inputs:
+      - name: preprocessed_data
+        default: datum://0197111f-3130-18bc-9bb2-49c7d6805e26
+      - name: model
+        default: datum://latest-model
+- step:
+    name: inference
+    image: docker.io/python:3.10
+    environment: pro-trial-prod-oci-vm-gpu-a10-1
+    command:
+      - pip install -r requirements.txt
+      - python inference.py
+    inputs:
+      - name: model
+        default: datum://latest-model
+      - name: image
+        default: datum://0197113f-8c2b-afe4-a415-410fc1647676
+- pipeline:
+    name: train_and_evaluate
+    nodes:
+      - name: preprocess
+        type: execution
+        step: preprocess
+      - name: train
+        type: execution
+        step: train
+        override:
+          inputs:
+            - name: preprocessed_data
+      - name: evaluate
+        type: execution
+        step: evaluate
+        override:
+          inputs:
+            - name: preprocessed_data
+    edges:
+      - [preprocess.outputs.*.zip, train.input.preprocessed_data]
+      - [preprocess.outputs.*.zip, evaluate.input.preprocessed_data]
+      - [train.outputs.*.pth, evaluate.input.model]

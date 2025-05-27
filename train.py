@@ -20,6 +20,9 @@ from monai.transforms import (
 )
 from utils.model import get_model_network
 from utils.transforms import get_transforms
+import valohai
+import shutil
+import json
 
 def train_model(train_loader, val_loader, num_epochs=100, learning_rate=1e-4,ckpt_path="checkpoints"):
     """
@@ -114,9 +117,18 @@ def train_model(train_loader, val_loader, num_epochs=100, learning_rate=1e-4,ckp
                 if metric > best_metric:
                     best_metric = metric
                     best_metric_epoch = epoch + 1
-                    torch.save(model.state_dict(), os.path.join(ckpt_path, "best_metirc_model.pth"))
-                    print("saved new best metric model")
-                    
+
+                    #Save model
+                    model_output_path = valohai.outputs().path('model.pth')
+                    torch.save(model.state_dict(), model_output_path)
+
+                    # Write metadata after model file exists
+                    file_metadata = {
+                        "valohai.alias": "latest-model"
+                    }
+                    with open(f"{model_output_path}.metadata.json", "w") as f:
+                        json.dump(file_metadata, f)
+                                        
                 print(f"current epoch: {epoch + 1} current mean dice: {metric:.4f}"
                       f"\nbest mean dice: {best_metric:.4f} at epoch: {best_metric_epoch}")
     
@@ -194,10 +206,23 @@ if __name__ == "__main__":
     
 
 
+    preprocessed_data_archive = valohai.inputs('preprocessed_data').path(process_archives=False)
+
+    # create extraction directory
+    extract_dir = os.path.join(os.path.dirname(preprocessed_data_archive), "extracted_data")
+    os.makedirs(extract_dir, exist_ok=True)
+
+    #unzip the preprocessed data
+    shutil.unpack_archive(preprocessed_data_archive, extract_dir, format='zip')
+
+    # Set data directories
+    data_dir = os.path.join(extract_dir, "imagesTr")
+    labels_dir = os.path.join(extract_dir, "labelsTr")
 
 
 
-    train_loader, val_loader = get_data_loaders(args.data_dir, args.labels_dir, args.batch_size)
+    train_loader, val_loader = get_data_loaders(data_dir,labels_dir, args.batch_size)
+
 
     
 

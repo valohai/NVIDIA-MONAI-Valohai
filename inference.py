@@ -11,6 +11,7 @@ from monai.data import Dataset, DataLoader, decollate_batch
 from utils.model import get_model_network
 from utils.transforms import get_transforms
 import argparse
+import valohai
 
 def run_inference(ckpt, input_image_path, output_path):
     """
@@ -94,4 +95,11 @@ if __name__ == "__main__":
     parser.add_argument('--model_path', type=str, default='checkpoints/best_metirc_model.pth')
     args = parser.parse_args()
 
-    run_inference(args.model_path, args.input_path, args.output_path)
+
+    model = valohai.inputs('model').path(process_archives=False)
+    input = valohai.inputs('image').path(process_archives=False)
+    output = valohai.outputs().path('/valohai/outputs/predictions')
+
+
+
+    run_inference(model, input, output)

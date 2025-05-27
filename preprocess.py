@@ -9,11 +9,17 @@ import nibabel as nib
 from monai.data import Dataset
 from monai.utils import set_determinism
 from utils.transforms import get_transforms
+import shutil
+import valohai
 
 FILE_KEYS = ["image", "label"]
 
 def preprocess_train_val(data_dir, labels_tr, test_dir, labels_ts, output_dir, check_sample=False):
+    
+    
     # Process training data
+
+
     train_images = sorted(glob(os.path.join(data_dir, '*.nii*')))
     train_labels = sorted(glob(os.path.join(labels_tr, '*.nii*')))
 
@@ -72,26 +78,59 @@ def preprocess_train_val(data_dir, labels_tr, test_dir, labels_ts, output_dir, c
         nib.save(nib.Nifti1Image(image, image_affine), os.path.join(output_dir, "imagesTs", f"{base_name}.gz"))
         nib.save(nib.Nifti1Image(label, label_affine), os.path.join(output_dir, "labelsTs", f"{base_name}.gz"))
 
+    #Get output file and folder path
+
+    zip_output_path = valohai.outputs().path('/valohai/outputs/preprocessed')
+    shutil.make_archive(zip_output_path, 'zip', output_dir)
+    
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Preprocess liver dataset (Train/Val + Test)")
-    parser.add_argument('--data_dir', type=str, default='-Valohai-MONAI-Medical-Imaging-/data/imagesTr')
-    parser.add_argument('--labels_tr', type=str, default='-Valohai-MONAI-Medical-Imaging-/data/labelsTr')
-    parser.add_argument('--labels_ts', type=str, default='-Valohai-MONAI-Medical-Imaging-/data/labelsTs')
-    parser.add_argument('--test_dir', type=str, default='-Valohai-MONAI-Medical-Imaging-/data/imagesTs')
-    parser.add_argument('--output_dir', type=str, default='-Valohai-MONAI-Medical-Imaging-/processed_data')
+    parser.add_argument('--output_dir', type=str, default='processed_data')
     parser.add_argument('--check_sample', type=bool, default=False)
-
-
     args = parser.parse_args()
+
+
+
+    # Get the dataset .rar file path from Valohai
+    dataset_archive = valohai.inputs('dataset').path(process_archives=False)
+    
+    # Create extraction directory
+    extract_dir = os.path.join(os.path.dirname(dataset_archive), "extracted_data")
+    os.makedirs(extract_dir, exist_ok=True)
+    
+    # Unpack the dataset
+    if not os.path.exists(dataset_archive):
+        raise ValueError(f"Dataset archive {dataset_archive} does not exist.")
+    
+    print(f"Extracting {dataset_archive} to {extract_dir}")
+    shutil.unpack_archive(dataset_archive, extract_dir=extract_dir, format='zip')
+    
+    # Set paths to the extracted data folders
+    data_dir = os.path.join(extract_dir, "data_min", "imagesTr")
+    labels_tr = os.path.join(extract_dir, "data_min", "labelsTr")
+    test_dir = os.path.join(extract_dir, "data_min", "imagesTs")
+    labels_ts = os.path.join(extract_dir, "data_min", "labelsTs")
+    
+    # Create output directory
+    output_dir = os.path.join(os.getcwd(), args.output_dir)
+    os.makedirs(output_dir, exist_ok=True)
+    
+    set_determinism(seed=0)
+    
+    print(f"Processing data from {data_dir}")
+    print(f"Training labels from {labels_tr}")
+    print(f"Test data from {test_dir}")
+    print(f"Test labels from {labels_ts}")
+
 
     set_determinism(seed=0)
 
     preprocess_train_val(
-        data_dir=args.data_dir,
-        labels_tr=args.labels_tr,
-        test_dir = args.test_dir,
-        labels_ts = args.labels_ts,
-        output_dir=args.output_dir,
+        data_dir=data_dir,
+        labels_tr=labels_tr,
+        test_dir = test_dir,
+        labels_ts = labels_ts,
+        output_dir=output_dir,
         check_sample=args.check_sample
     )
