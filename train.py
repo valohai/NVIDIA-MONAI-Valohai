@@ -26,17 +26,12 @@ import json
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train liver segmentation model')
-    parser.add_argument('--data_dir', type=str, default='processed_data/imagesTr',
-                        help='Directory containing input images')
-    parser.add_argument('--labels_dir', type=str, default='processed_data/labelsTr',
-                        help='Directory containing label masks'),
-    parser.add_argument('--batch_size', type=int, default=2,
-                        help='Batch size for training')
-    parser.add_argument('--epochs', type=int, default=10,
-                        help='Number of training epochs')
-    parser.add_argument('--lr', type=float, default=1e-4,
-                        help='Learning rate')
-    parser.add_argument('--ckpt',type=str,default='checkpoints',help='checkpoint directory')
+    parser.add_argument('--data_dir', type=str, default='processed_data/imagesTr')
+    parser.add_argument('--labels_dir', type=str, default='processed_data/labelsTr'),
+    parser.add_argument('--batch_size', type=int, default=2)
+    parser.add_argument('--epochs', type=int, default=10)
+    parser.add_argument('--lr', type=float, default=1e-4)
+    parser.add_argument('--ckpt',type=str,default='checkpoints')
     return parser.parse_args()
 
 
