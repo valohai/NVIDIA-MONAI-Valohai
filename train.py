@@ -3,9 +3,8 @@ Module for training liver segmentation model.
 """
 import os
 import torch
-from monai.networks.nets import SwinUNETR,UNet  # Changed from UNet
 from monai.losses import DiceLoss
-from monai.metrics import DiceMetric
+from monai.metrics import DiceMetric, MeanIoU
 from monai.inferers import sliding_window_inference
 from monai.data import decollate_batch
 from monai.transforms import AsDiscrete, Compose
@@ -26,17 +25,18 @@ import json
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train liver segmentation model')
-    parser.add_argument('--data_dir', type=str, default='processed_data/imagesTr')
-    parser.add_argument('--labels_dir', type=str, default='processed_data/labelsTr'),
     parser.add_argument('--batch_size', type=int, default=2)
     parser.add_argument('--epochs', type=int, default=10)
     parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--ckpt',type=str,default='checkpoints')
+    parser.add_argument('--in_channels', type=int, default=1)
+    parser.add_argument('--out_channels', type=int, default=3)
+    parser.add_argument('--num_res_units', type=int, default=2)
+    parser.add_argument('--channels', type=lambda s: list(map(int, s.split(','))))
     return parser.parse_args()
 
 
-
-def train_model(train_loader, val_loader, num_epochs=100, learning_rate=1e-4,ckpt_path="checkpoints"):
+def train_model(train_loader, val_loader, model, num_epochs=100, learning_rate=1e-4,ckpt_path="checkpoints"):
     """
     Train liver segmentation model.
     
@@ -46,6 +46,7 @@ def train_model(train_loader, val_loader, num_epochs=100, learning_rate=1e-4,ckp
         num_epochs (int): Number of training epochs
         learning_rate (float): Learning rate for optimization
         ckpt_path (str): Path to save checkpoints
+        model: Model instance to train
     """
     # Set device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -53,7 +54,7 @@ def train_model(train_loader, val_loader, num_epochs=100, learning_rate=1e-4,ckp
 
     os.makedirs(ckpt_path, exist_ok=True)
 
-    model = get_model_network().to(device)
+    model = model.to(device)
 
 
     # Loss function and optimizer
@@ -62,12 +63,13 @@ def train_model(train_loader, val_loader, num_epochs=100, learning_rate=1e-4,ckp
     
     # Metric
     dice_metric = DiceMetric(include_background=False, reduction="mean")
+    mean_iou_metric = MeanIoU(include_background=False, reduction="mean")
     
     # Training loop
-    best_metric = -1
-    best_metric_epoch = -1
+    best_dice_score = -1
+    best_dice_epoch = -1
     epoch_loss_values = []
-    metric_values = []
+    dice_values = []
     
     post_transforms = get_transforms('post_transforms')
 
@@ -125,15 +127,18 @@ def train_model(train_loader, val_loader, num_epochs=100, learning_rate=1e-4,ckp
                     val_labels = [d["label"] for d in val_batch_data]
                     # compute metric for current iteration
                     dice_metric(y_pred=val_outputs, y=val_labels)  
+                    mean_iou_metric(y_pred=val_outputs, y=val_labels)
 
                 # aggregate the final mean dice                    
-                metric = dice_metric.aggregate().item()
+                dice_score = dice_metric.aggregate().item()
+                mean_iou_score = mean_iou_metric.aggregate().item()
                 dice_metric.reset()
+                mean_iou_metric.reset()
 
-                metric_values.append(metric)
-                if metric > best_metric:
-                    best_metric = metric
-                    best_metric_epoch = epoch + 1
+                dice_values.append(dice_score)
+                if dice_score > best_dice_score:
+                    best_dice_score = dice_score
+                    best_dice_epoch = epoch + 1
 
                     #Save model
                     model_output_path = valohai.outputs().path('model.pth')
@@ -146,15 +151,16 @@ def train_model(train_loader, val_loader, num_epochs=100, learning_rate=1e-4,ckp
                     with open(f"{model_output_path}.metadata.json", "w") as f:
                         json.dump(file_metadata, f)
                                     
-                
+                # valohai metadata
                 print(json.dumps({
                     "epoch": epoch + 1,
-                    "val_dice": metric,
-                    "best_dice_score": best_metric,
-                    "best_dice_epoch": best_metric_epoch
+                    "val_dice": dice_score,
+                    "val_mean_iou": mean_iou_score,
+                    "best_dice_score": best_dice_score,
+                    "best_dice_epoch": best_dice_epoch
                 }))
     
-    print(f"Training completed, best metric: {best_metric:.4f} at epoch: {best_metric_epoch}")
+    print(f"Training completed, best dice_score: {best_dice_score:.4f} at epoch: {best_dice_epoch}")
 
     return model
 
@@ -243,14 +249,20 @@ if __name__ == "__main__":
 
     train_loader, val_loader = get_data_loaders(data_dir,labels_dir, args.batch_size)
 
-
-    
+    # Initialize Model
+    init_model = get_model_network(
+        in_channels=args.in_channels,
+        out_channels=args.out_channels,
+        num_res_units=args.num_res_units,
+        channels=args.channels
+    )
 
     # Train model
     model = train_model(
         train_loader=train_loader,
         val_loader=val_loader,
+        model=init_model,
         num_epochs=args.epochs,
         learning_rate=args.lr,
-        ckpt_path=args.ckpt
+        ckpt_path=args.ckpt,
     )
