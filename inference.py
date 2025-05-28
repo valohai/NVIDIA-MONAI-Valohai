@@ -12,6 +12,7 @@ from utils.model import get_model_network
 from utils.transforms import get_transforms, visualize_preprocessed_image
 import valohai
 import os
+import nibabel as nib
 
 
 
@@ -50,12 +51,13 @@ def run_inference(ckpt, input_image_path, output_path):
         AsDiscreted(keys="pred", argmax=True),
         SaveImaged(
             keys="pred",
-            meta_keys="image_meta_dict",
+            meta_keys="pred_meta_dict",
             output_postfix="pred",
             output_dir=output_path,
             separate_folder=False,
             resample=False,
             output_dtype=np.uint8,  # Save as uint8 for segmentation masks
+            savepath_in_metadict=True,   
         )
     ])
 
@@ -83,7 +85,22 @@ def run_inference(ckpt, input_image_path, output_path):
 
             # Apply post transforms (inversion + save)
             for data_dict in batch_data:
-                post_transforms(data_dict)
+               post_transforms(data_dict)
+
+            # Strip extension and add _pred.nii.gz
+            base_name = os.path.basename(input_image_path)
+            if base_name.endswith(".nii.gz"):
+                pred_name = base_name.replace(".nii.gz", "_pred.nii.gz")
+            else:
+                pred_name = os.path.splitext(base_name)[0] + "_pred.nii.gz"
+
+            pred_path = os.path.join(output_path, pred_name)
+
+            visualize_preprocessed_image(
+                nib.load(input_image_path).get_fdata(),
+                nib.load(pred_path).get_fdata().astype(np.uint8),
+                "/valohai/outputs/sample_inference.png"
+            )
 
     print(f"Segmentation mask saved to: {output_path}")
 

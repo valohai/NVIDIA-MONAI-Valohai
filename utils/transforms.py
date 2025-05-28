@@ -65,7 +65,7 @@ def visualize_preprocessed_image(image, label, output_path):
     # Extract the coronal slice (Z, X)
     image_slice = image_np[:, slice_index, :]
     label_slice = label_np[:, slice_index, :]
-    plt.figure(figsize=(12, 6))
+    plt.figure(figsize=(24, 12))
     plt.subplot(1, 2, 1)
     plt.imshow(image_slice, cmap='gray')
     plt.title("Coronal CT Slice")
