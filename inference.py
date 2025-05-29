@@ -9,7 +9,8 @@ from monai.transforms import (
 from monai.inferers import sliding_window_inference
 from monai.data import Dataset, DataLoader, decollate_batch
 from utils.model import get_model_network
-from utils.transforms import get_transforms, visualize_preprocessed_image
+from utils.transforms import get_transforms
+from utils.visualizations import visualize_preprocessed_image
 import valohai
 import os
 import nibabel as nib

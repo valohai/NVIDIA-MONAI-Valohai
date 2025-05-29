@@ -9,15 +9,17 @@ from monai.inferers import sliding_window_inference
 from monai.data import decollate_batch
 from monai.data import Dataset, DataLoader
 from monai.transforms import (
-    Compose, LoadImaged, EnsureChannelFirstd,
+    Compose, LoadImaged, EnsureChannelFirstd,ResizeWithPadOrCropd
 )
+
 from monai.handlers.utils import from_engine
-import matplotlib.pyplot as plt
 from utils.transforms import get_transforms
 from utils.model import get_model_network
+from utils.visualizations import plot_slices_max_label
 import valohai
 import shutil
 import json
+
 
 def evaluate_model(model_path, data_dir, labels_dir, device, batch_size=1):
     """
@@ -43,6 +45,10 @@ def evaluate_model(model_path, data_dir, labels_dir, device, batch_size=1):
     test_transforms = Compose([
         LoadImaged(keys=["image", "label"]),
         EnsureChannelFirstd(keys=["image", "label"]),
+        ResizeWithPadOrCropd(
+            keys=["image", "label"],
+            spatial_size=(160, 160, 160)
+        ),
     ])
 
     # Postprocessing transforms
@@ -74,6 +80,10 @@ def evaluate_model(model_path, data_dir, labels_dir, device, batch_size=1):
             val_outputs, val_labels = from_engine(["pred", "label"])(val_data)
             val_outputs = [v.to(device) for v in val_outputs]
             val_labels = [v.to(device) for v in val_labels]
+
+            # Plot slices with maximum label values
+            plot_slices_max_label(val_inputs[0], val_labels[0], val_outputs[0], live= False)
+
             # compute metric for current iteration
             dice_metric(y_pred=val_outputs, y=val_labels)
             mean_iou_metric(y_pred=val_outputs, y=val_labels)

@@ -18,6 +18,7 @@ from monai.transforms import (
 )
 from utils.model import get_model_network
 from utils.transforms import get_transforms
+from utils.visualizations import plot_slices_max_label
 import valohai
 import shutil
 import json
@@ -125,6 +126,9 @@ def train_model(train_loader, val_loader, model, num_epochs=100, learning_rate=1
                     # Extract processed predictions and labels for metric computation
                     val_outputs = [d["pred"] for d in val_batch_data]
                     val_labels = [d["label"] for d in val_batch_data]
+
+                    plot_slices_max_label(val_inputs[0], val_labels[0], val_outputs[0], output_dir='/valohai/outputs/train_progress/')
+
                     # compute metric for current iteration
                     dice_metric(y_pred=val_outputs, y=val_labels)  
                     mean_iou_metric(y_pred=val_outputs, y=val_labels)
@@ -199,6 +203,7 @@ def get_data_loaders(data_dir, labels_dir, batch_size=2, val_split=0.2):
             num_samples=4,
             image_key="image",
             image_threshold=0,
+            allow_smaller=True
         ),
         RandRotate90d(keys=["image", "label"], prob=0.5),
         RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=[0]),
