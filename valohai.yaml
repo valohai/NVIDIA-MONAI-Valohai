@@ -26,7 +26,7 @@
         default: 1e-4
       - name: epochs
         type: integer
-        default: 100
+        default: 10
       - name: batch_size
         type: integer
         default: 2
@@ -64,14 +64,50 @@
     environment: pro-trial-prod-oci-vm-gpu-a10-1
     command:
       - pip install -r requirements.txt
-      - python inference.py
+      - python inference.py {parameters}
     inputs:
       - name: model
         default: datum://latest-model
       - name: image
         default: datum://019711fb-eb24-fec3-001e-4da65d1bf469
+    parameters:
+      - name: in_channels
+        type: integer
+        default: 1
+      - name: out_channels
+        type: integer
+        default: 3
+      - name: num_res_units
+        type: integer
+        default: 2
+      - name: channels
+        type: string
+        default: 16,32,64,128
+        multiple-separator: ","
+        multiple: separate
 - pipeline:
     name: train_and_evaluate
+    parameters:
+      - name: in_channels
+        targets:
+          - train.parameters.in_channels
+          - inference.parameters.in_channels
+        default: 1
+      - name: out_channels
+        targets:
+          - train.parameters.out_channels
+          - inference.parameters.out_channels
+        default: 3
+      - name: num_res_units
+        targets:
+          - train.parameters.num_res_units
+          - inference.parameters.num_res_units
+        default: 2
+      - name: channels
+        targets:
+          - train.parameters.channels
+          - inference.parameters.channels
+        default: 16,32,64,128
     nodes:
       - name: preprocess
         type: execution

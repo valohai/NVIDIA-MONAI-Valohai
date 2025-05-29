@@ -14,10 +14,19 @@ from utils.visualizations import visualize_preprocessed_image
 import valohai
 import os
 import nibabel as nib
+import argparse
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description='Train liver segmentation model')
+    parser.add_argument('--in_channels', type=int, default=1)
+    parser.add_argument('--out_channels', type=int, default=3)
+    parser.add_argument('--num_res_units', type=int, default=2)
+    parser.add_argument('--channels', type=lambda s: list(map(int, s.split(','))))
+    return parser.parse_args()
 
-def run_inference(ckpt, input_image_path, output_path):
+
+def run_inference(ckpt, input_image_path, output_path, model):
     """
     Run inference on a single liver image.
     
@@ -29,7 +38,6 @@ def run_inference(ckpt, input_image_path, output_path):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Initialize model
-    model = get_model_network()
     model.load_state_dict(torch.load(ckpt, map_location=device))
     model.to(device)
     model.eval()
@@ -109,11 +117,23 @@ def run_inference(ckpt, input_image_path, output_path):
 
 
 if __name__ == "__main__":
-    model = valohai.inputs('model').path(process_archives=False)
+    model_ckpt = valohai.inputs('model').path(process_archives=False)
     input = valohai.inputs('image').path(process_archives=False)
     output = valohai.outputs().path('/valohai/outputs/predictions')
 
-    run_inference(model, input, output)
+    args = parse_args()
+
+    #initialize model
+    model = get_model_network(
+        in_channels=args.in_channels,
+        out_channels=args.out_channels,
+        num_res_units=args.num_res_units,
+        channels=args.channels
+    )
+
+
+
+    run_inference(model_ckpt, input, output, model)
 
 
 
