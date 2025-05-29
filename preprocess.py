@@ -122,7 +122,7 @@ if __name__ == "__main__":
 
     #Check zip or tar
     if dataset_archive.endswith('.tar'):
-        shutil.unpack_archive(dataset_archive, extract_dir=extract_dir, format='.tar')
+        shutil.unpack_archive(dataset_archive, extract_dir=extract_dir, format='tar')
     elif dataset_archive.endswith('.zip'):
         shutil.unpack_archive(dataset_archive, extract_dir=extract_dir, format='zip')
 
