@@ -15,7 +15,6 @@ def get_model_network(in_channels = 1, out_channels = 3, num_res_units=2, channe
         channels=channels,
         strides=(2, 2, 2),
         num_res_units=num_res_units,
-        norm="batch",
     )
     
     return model
