@@ -31,11 +31,11 @@ This project demonstrates how to:
 2. **Train Model**
 
    * Trains a UNet model on the preprocessed dataset
-   * Configurable number of epochs, learning rate, and batch size
+   * Configurable number of epochs, learning rate, batch size, in/out channels
 
 3. **Evaluate Model**
 
-   * Evaluates model performance on the test set using Dice Score
+   * Evaluates model performance on the test set using Dice Score, IoU
    * Generates logs and visualizations for segmentation quality
 
 4. **Run Inference**
