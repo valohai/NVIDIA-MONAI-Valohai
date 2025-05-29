@@ -4,21 +4,22 @@ Module for evaluating liver segmentation model.
 import os
 import torch
 import argparse
-from monai.metrics import DiceMetric
-from monai.networks.nets import UNet
+from monai.metrics import DiceMetric, MeanIoU
 from monai.inferers import sliding_window_inference
 from monai.data import decollate_batch
 from monai.data import Dataset, DataLoader
 from monai.transforms import (
-    Compose, LoadImaged, EnsureChannelFirstd,
+    Compose, LoadImaged, EnsureChannelFirstd,ResizeWithPadOrCropd
 )
+
 from monai.handlers.utils import from_engine
-import matplotlib.pyplot as plt
 from utils.transforms import get_transforms
 from utils.model import get_model_network
+from utils.visualizations import plot_slices_max_label
 import valohai
 import shutil
 import json
+
 
 def evaluate_model(model_path, data_dir, labels_dir, device, batch_size=1):
     """
@@ -44,6 +45,10 @@ def evaluate_model(model_path, data_dir, labels_dir, device, batch_size=1):
     test_transforms = Compose([
         LoadImaged(keys=["image", "label"]),
         EnsureChannelFirstd(keys=["image", "label"]),
+        ResizeWithPadOrCropd(
+            keys=["image", "label"],
+            spatial_size=(160, 160, 160)
+        ),
     ])
 
     # Postprocessing transforms
@@ -58,6 +63,7 @@ def evaluate_model(model_path, data_dir, labels_dir, device, batch_size=1):
 
     # set up metric
     dice_metric = DiceMetric(include_background=False, reduction="mean",)
+    mean_iou_metric = MeanIoU(include_background=False, reduction="mean",)
 
     model.load_state_dict(torch.load(os.path.join(model_path), weights_only=True))
     model.to(device)
@@ -74,29 +80,36 @@ def evaluate_model(model_path, data_dir, labels_dir, device, batch_size=1):
             val_outputs, val_labels = from_engine(["pred", "label"])(val_data)
             val_outputs = [v.to(device) for v in val_outputs]
             val_labels = [v.to(device) for v in val_labels]
+
+            # Plot slices with maximum label values
+            plot_slices_max_label(val_inputs[0], val_labels[0], val_outputs[0], live= False)
+
             # compute metric for current iteration
             dice_metric(y_pred=val_outputs, y=val_labels)
+            mean_iou_metric(y_pred=val_outputs, y=val_labels)
 
 
             print(json.dumps({
-                "current_batch_mean_dice": dice_metric.aggregate().item()
+                "current_batch_mean_dice": dice_metric.aggregate().item(),
+                "current_batch_mean_iou": mean_iou_metric.aggregate().item()
             }))
         
 
         # aggregate the final mean dice result
         metric_org = dice_metric.aggregate().item()
+        metric_iou = mean_iou_metric.aggregate().item()
         # reset the status for next validation round
         dice_metric.reset()
+        mean_iou_metric.reset()
 
     print(json.dumps({
-        "mean_dice": metric_org
+        "mean_dice": metric_org,
+        "mean_iou": metric_iou
     }))
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Evaluate liver segmentation model')
-    parser.add_argument('--data_dir', type=str, default='-Valohai-MONAI-Medical-Imaging-/processed_data/imagesTs')
-    parser.add_argument('--labels_dir', type=str, default='-Valohai-MONAI-Medical-Imaging-/processed_data/labelsTs')
     parser.add_argument('--model_path', type=str, default='checkpoints/best_metirc_model.pth')
     parser.add_argument('--batch_size', type=int, default=2)
     

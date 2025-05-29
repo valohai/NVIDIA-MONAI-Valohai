@@ -13,13 +13,13 @@
     image: nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
     environment: pro-trial-prod-oci-vm-gpu-a10-1
     command:
-      - apt update && apt install -y python3-pip
+      - apt-get update && apt-get install -y python3-pip
       - pip3 install torch==2.2.1+cu118 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
       - pip3 install -r requirements.txt
       - python3 train.py {parameters}
     inputs:
       - name: preprocessed_data
-        default: datum://019711c6-90fb-c864-9fcb-af864b0fda5b
+        default: datum://01971921-072b-4553-c48c-a86b7b056899
     parameters:
       - name: lr
         type: float
@@ -27,18 +27,35 @@
       - name: epochs
         type: integer
         default: 100
+      - name: batch_size
+        type: integer
+        default: 2
+      - name: in_channels
+        type: integer
+        default: 1
+      - name: out_channels
+        type: integer
+        default: 3
+      - name: num_res_units
+        type: integer
+        default: 2
+      - name: channels
+        type: string
+        default: 16,32,64,128
+        multiple-separator: ","
+        multiple: separate
 - step:
     name: evaluate
     image: nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
     environment: pro-trial-prod-oci-vm-gpu-a10-1
     command:
-      - apt update && apt install -y python3-pip
+      - apt-get update && apt-get install -y python3-pip
       - pip3 install torch==2.2.1+cu118 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
       - pip3 install -r requirements.txt
       - python3 evaluate.py
     inputs:
       - name: preprocessed_data
-        default: datum://01971398-9fa9-492a-28d2-13a9baa4b917
+        default: datum://01971921-072b-4553-c48c-a86b7b056899
       - name: model
         default: datum://latest-model
 - step:

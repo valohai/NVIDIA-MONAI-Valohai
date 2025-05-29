@@ -11,7 +11,7 @@ import shutil
 import valohai
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
-from utils.transforms import visualize_preprocessed_image
+from utils.visualizations import visualize_preprocessed_image
 
 
 FILE_KEYS = ["image", "label"]
