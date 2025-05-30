@@ -121,7 +121,8 @@ if __name__ == "__main__":
 
     # Get the dataset .rar file path from Valohai
     dataset_archive = valohai.inputs('dataset').path(process_archives=False)
-    
+
+
     # Create extraction directory
     extract_dir = os.path.join(os.path.dirname(dataset_archive), "extracted_data")
     os.makedirs(extract_dir, exist_ok=True)
