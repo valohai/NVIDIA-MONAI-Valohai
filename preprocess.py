@@ -11,6 +11,7 @@ import shutil
 import valohai
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
+import json
 from utils.visualizations import visualize_preprocessed_image
 
 
@@ -95,17 +96,28 @@ def preprocess_train_val(data_dir, labels_tr, output_dir):
         output_dir=output_dir
     )
 
-    #Get output file and folder path
-    zip_output_path = valohai.outputs().path('/valohai/outputs/preprocessed')
+    # Get zip output path
+    zip_output_path = valohai.outputs().path("preprocessed")
+
+    # Zip the entire processed output folder
     shutil.make_archive(zip_output_path, 'zip', output_dir)
-    
+
+    # Save Valohai metadata
+    metadata = {
+        "preprocessed.zip": {
+            "valohai.dataset-versions": [
+                 "dataset://task03_liver/version1"
+             ],
+        }
+    }
+
+    metadata_path = valohai.outputs().path("valohai.metadata.jsonl")
+    with open(metadata_path, "w") as outfile:
+        for file_name, file_metadata in metadata.items():
+            json.dump({"file": file_name, "metadata": file_metadata}, outfile)
+            outfile.write("\n")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Preprocess liver dataset (Train/Val + Test)")
-    parser.add_argument('--output_dir', type=str, default='processed_data')
-    args = parser.parse_args()
-
-
 
     # Get the dataset .rar file path from Valohai
     dataset_archive = valohai.inputs('dataset').path(process_archives=False)
@@ -137,7 +149,7 @@ if __name__ == "__main__":
         raise FileNotFoundError("imagesTr or labelsTr folder not found in extracted dataset.")
 
     # Create output directory
-    output_dir = os.path.join(os.getcwd(), args.output_dir)
+    output_dir = os.path.join(os.getcwd(), "processed_data")
     os.makedirs(output_dir, exist_ok=True)
     
     set_determinism(seed=0)

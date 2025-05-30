@@ -76,9 +76,6 @@ def train_model(train_loader, val_loader, model, num_epochs=100, learning_rate=1
 
     
     for epoch in range(num_epochs):
-        print(json.dumps({
-            "epochs": epoch + 1,
-        }))
         model.train()
         epoch_loss = 0
         step = 0
