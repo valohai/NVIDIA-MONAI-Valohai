@@ -19,14 +19,14 @@
       - python3 train.py {parameters}
     inputs:
       - name: preprocessed_data
-        default: datum://01971921-072b-4553-c48c-a86b7b056899
+        default: dataset://task03_liver/test
     parameters:
       - name: lr
         type: float
         default: 1e-4
       - name: epochs
         type: integer
-        default: 10
+        default: 100
       - name: batch_size
         type: integer
         default: 2
