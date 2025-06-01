@@ -55,6 +55,9 @@ This pipeline automates the full workflow for medical image segmentation using a
 ### 4. **Run Inference**
 
 * Performs sliding window inference on new or unseen volumetric data.
+* Input:
+  * Raw volume in NIfTI format (`.nii.gz`)
+
 * Outputs:
 
   * Prediction masks in NIfTI format (`.nii.gz`)
