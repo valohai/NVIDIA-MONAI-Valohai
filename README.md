@@ -22,26 +22,43 @@ This project demonstrates how to:
 
 ## Pipeline Steps
 
-1. **Preprocess Dataset**
+This pipeline automates the full workflow for medical image segmentation using a U-Net architecture on the Task03\_Liver dataset from the Medical Segmentation Decathlon.
 
-   * Downloads the Task03\_Liver dataset from the Medical Segmentation Decathlon
-   * Applies preprocessing transforms (resampling, cropping, resizing, etc.)
-   * Creates manifest files for training, validation, and testing splits
+### 1. **Preprocess Dataset**
 
-2. **Train Model**
+* Downloads the Task03\_Liver dataset from the [Medical Segmentation Decathlon](http://medicaldecathlon.com/).
+* Applies preprocessing transforms such as resampling, cropping, and resizing.
+* Splits the dataset into training, validation, and test sets, and generates manifest files.
+* Saves the preprocessed volumes and labels as zip using Datasets (check: https://docs.valohai.com/hc/en-us/articles/18704302494481-Creating-datasets)
 
-   * Trains a UNet model on the preprocessed dataset
-   * Configurable number of epochs, learning rate, batch size, in/out channels
 
-3. **Evaluate Model**
+### 2. **Train Model**
 
-   * Evaluates model performance on the test set using Dice Score, IoU
-   * Generates logs and visualizations for segmentation quality
+* Trains a configurable U-Net model on the preprocessed dataset.
+* Supports custom settings for:
 
-4. **Run Inference**
+  * Number of epochs
+  * Learning rate
+  * Batch size
+  * Input/output channels
+  * Number of residual units
+  * Channel depth at each stage
 
-   * Runs sliding window inference on new input volumes
-   * Saves prediction masks and outputs visualization images
+### 3. **Evaluate Model**
+
+* Evaluates model performance using metrics such as:
+
+  * Dice Similarity Coefficient (DSC)
+  * Intersection over Union (IoU)
+* Produces detailed logs and segmentation quality visualizations.
+
+### 4. **Run Inference**
+
+* Performs sliding window inference on new or unseen volumetric data.
+* Outputs:
+
+  * Prediction masks in NIfTI format (`.nii.gz`)
+  * Visualization snapshots for qualitative analysis
 
 ## Dataset
 
