@@ -1,11 +1,8 @@
 
 from typing import Dict, Literal
-from monai.transforms import (
-    AsDiscreted, Compose, EnsureChannelFirstd,
-    EnsureTyped, LoadImaged, Resized,
-    ScaleIntensityRanged, Spacingd
-)
-
+from monai.transforms import (AsDiscreted, Compose, EnsureChannelFirstd,
+                              EnsureTyped, LoadImaged, Resized,
+                              ScaleIntensityRanged, Spacingd)
 
 TransformMode = Literal['main', 'inference', 'post_transforms']
 

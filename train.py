@@ -1,11 +1,11 @@
 """
 Module for training liver segmentation model.
 """
-from typing import Tuple
 import argparse
 import json
 import os
 import shutil
+from typing import Tuple
 
 import torch
 import valohai
@@ -13,11 +13,9 @@ from monai.data import DataLoader, Dataset, decollate_batch
 from monai.inferers import sliding_window_inference
 from monai.losses import DiceLoss
 from monai.metrics import DiceMetric, MeanIoU
-from monai.transforms import (
-    Compose, EnsureChannelFirstd, LoadImaged,
-    RandCropByPosNegLabeld, RandFlipd,
-    RandGaussianNoised, RandRotate90d
-)
+from monai.transforms import (Compose, EnsureChannelFirstd, LoadImaged,
+                              RandCropByPosNegLabeld, RandFlipd,
+                              RandGaussianNoised, RandRotate90d)
 from sklearn.model_selection import train_test_split
 
 from utils.model import get_model_network
