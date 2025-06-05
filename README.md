@@ -21,6 +21,7 @@ This project demonstrates how to:
 * `requirements.txt`: Core Python dependencies
 
 ## Pipeline Steps
+![image](https://github.com/user-attachments/assets/bdf63043-771e-41b6-b250-6c85b2cd013c)
 
 This pipeline automates the full workflow for medical image segmentation using a U-Net architecture on the Task03\_Liver dataset from the Medical Segmentation Decathlon.
 
@@ -62,6 +63,9 @@ This pipeline automates the full workflow for medical image segmentation using a
 
   * Prediction masks in NIfTI format (`.nii.gz`)
   * Visualization snapshots for qualitative analysis
+
+### Run the pipeline
+vh pipeline run train_and_evaluate
 
 ## Dataset
 
