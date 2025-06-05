@@ -1,27 +1,36 @@
-from monai.transforms import (
-    Compose, LoadImaged, EnsureChannelFirstd, ScaleIntensityRanged,
-    Spacingd, EnsureTyped, CropForegroundd,AsDiscreted, Resized
-)
-import matplotlib.pyplot as plt
-import numpy as np
+
+from typing import Dict, Literal
+from monai.transforms import (AsDiscreted, Compose, EnsureChannelFirstd,
+                              EnsureTyped, LoadImaged, Resized,
+                              ScaleIntensityRanged, Spacingd)
+
+TransformMode = Literal['main', 'inference', 'post_transforms']
 
 
-def get_transforms(mode):
+def get_transforms(mode: TransformMode) -> Compose:
     """
     Get preprocessing transforms for training, testing or inference.
     
     Args:
-        mode (str): 'train', 'test', or 'inference'
+        mode: Transform mode to use ('main', 'inference', or 'post_transforms')
     
     Returns:
-        Compose: Composed transforms for the specified mode
+        Composed transforms for the specified mode
+
+    Raises:
+        ValueError: If mode is not one of the supported values
     """
-    transforms_dict = {
+    transforms_dict: Dict[TransformMode, Compose] = {
         'main': Compose([
             LoadImaged(keys=["image", "label"], image_only=False),
             EnsureChannelFirstd(keys=["image", "label"]),
             ScaleIntensityRanged(
-                keys=["image"], a_min=-57, a_max=164, b_min=0.0, b_max=1.0, clip=True
+                keys=["image"],
+                a_min=-57,
+                a_max=164,
+                b_min=0.0,
+                b_max=1.0,
+                clip=True
             ),
             Spacingd(
                 keys=["image", "label"],
@@ -38,7 +47,12 @@ def get_transforms(mode):
             LoadImaged(keys=["image"], image_only=False),
             EnsureChannelFirstd(keys=["image"]),
             ScaleIntensityRanged(
-                keys=["image"], a_min=-57, a_max=164, b_min=0.0, b_max=1.0, clip=True
+                keys=["image"],
+                a_min=-57,
+                a_max=164,
+                b_min=0.0,
+                b_max=1.0,
+                clip=True
             ),
             Spacingd(
                 keys=["image"],
@@ -56,9 +70,10 @@ def get_transforms(mode):
             AsDiscreted(keys="label", to_onehot=3),
         ]),
     }
-    
     if mode not in transforms_dict:
-        raise ValueError(f"Mode '{mode}' not supported. Choose from: {list(transforms_dict.keys())}")
+        raise ValueError(
+            f"Mode '{mode}' not supported. Choose from: {list(transforms_dict.keys())}"
+        )
     
     return transforms_dict[mode]
 

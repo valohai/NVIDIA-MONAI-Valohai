@@ -1,20 +1,20 @@
 """
 Module for running inference with liver segmentation model.
 """
+import argparse
+import os
+
+import nibabel as nib
 import numpy as np
 import torch
-from monai.transforms import (
-    Compose, Invertd, AsDiscreted, SaveImaged
-)
+import valohai
+from monai.data import DataLoader, Dataset, decollate_batch
 from monai.inferers import sliding_window_inference
-from monai.data import Dataset, DataLoader, decollate_batch
+from monai.transforms import AsDiscreted, Compose, Invertd, SaveImaged
+
 from utils.model import get_model_network
 from utils.transforms import get_transforms
 from utils.visualizations import visualize_preprocessed_image
-import valohai
-import os
-import nibabel as nib
-import argparse
 
 
 def parse_args():
@@ -29,7 +29,7 @@ def parse_args():
 def run_inference(ckpt, input_image_path, output_path, model):
     """
     Run inference on a single liver image.
-    
+
     Args:
         ckpt (str): Path to the model checkpoint
         input_image_path (str): Path to input image
@@ -44,7 +44,7 @@ def run_inference(ckpt, input_image_path, output_path, model):
 
     # Define transforms
     inference_transform = get_transforms('inference')
-    
+
     # Attach output dir to post-transforms
     post_transforms = Compose([
         Invertd(
@@ -66,7 +66,7 @@ def run_inference(ckpt, input_image_path, output_path, model):
             separate_folder=False,
             resample=False,
             output_dtype=np.uint8,  # Save as uint8 for segmentation masks
-            savepath_in_metadict=True,   
+            savepath_in_metadict=True,
         )
     ])
 
@@ -79,7 +79,9 @@ def run_inference(ckpt, input_image_path, output_path, model):
     with torch.no_grad():
         for batch in test_loader:
             test_inputs = batch["image"].to(device)
-            test_outputs = sliding_window_inference(test_inputs, (160, 160, 160), 4, model)
+            test_outputs = sliding_window_inference(
+                test_inputs, (160, 160, 160), 4, model
+            )
 
             # Prepare for inversion and saving
             decollated_outputs = decollate_batch(test_outputs)
@@ -87,14 +89,14 @@ def run_inference(ckpt, input_image_path, output_path, model):
             for i, pred in enumerate(decollated_outputs):
                 batch_data.append({
                     "pred": pred,
-                    "image": batch["image"][i], 
+                    "image": batch["image"][i],
                     "pred_meta_dict": batch["image_meta_dict"],
                     "image_meta_dict": batch["image_meta_dict"]
                 })
 
             # Apply post transforms (inversion + save)
             for data_dict in batch_data:
-               post_transforms(data_dict)
+                post_transforms(data_dict)
 
             # Strip extension and add _pred.nii.gz
             base_name = os.path.basename(input_image_path)
@@ -108,22 +110,20 @@ def run_inference(ckpt, input_image_path, output_path, model):
             visualize_preprocessed_image(
                 nib.load(input_image_path).get_fdata(),
                 nib.load(pred_path).get_fdata().astype(np.uint8),
-                "/valohai/outputs/sample_inference.png"
+                valohai.outputs("my-output").path("sample_inference.png")
             )
 
     print(f"Segmentation mask saved to: {output_path}")
 
 
-
-
 if __name__ == "__main__":
     model_ckpt = valohai.inputs('model').path(process_archives=False)
     input = valohai.inputs('image').path(process_archives=False)
-    output = valohai.outputs().path('/valohai/outputs/predictions')
+    output = valohai.outputs("my-output").path('predictions')
 
     args = parse_args()
 
-    #initialize model
+    # initialize model
     model = get_model_network(
         in_channels=args.in_channels,
         out_channels=args.out_channels,
@@ -131,10 +131,4 @@ if __name__ == "__main__":
         channels=args.channels
     )
 
-
-
     run_inference(model_ckpt, input, output, model)
-
-
-
-

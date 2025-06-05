@@ -1,32 +1,41 @@
-
+"""
+Module for preprocessing medical imaging data.
+"""
+import json
 import os
-import argparse
-import numpy as np
-from glob import glob
-import nibabel as nib
-from monai.data import Dataset
-from monai.utils import set_determinism
-from utils.transforms import get_transforms
 import shutil
+import tempfile
+from glob import glob
+from typing import Dict, List
+
+import nibabel as nib
+import numpy as np
 import valohai
+from monai.data import Dataset
+from monai.transforms import Transform
+from monai.utils import set_determinism
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
-import json
-from utils.visualizations import visualize_preprocessed_image
 
+from utils.transforms import get_transforms
+from utils.visualizations import visualize_preprocessed_image
 
 FILE_KEYS = ["image", "label"]
 
 
-def process_dataset(data_dicts, dataset_transform, output_subdir, output_dir):
+def process_dataset(
+    data_dicts: List[Dict[str, str]],
+    dataset_transform: Transform,
+    output_subdir: str,
+    output_dir: str
+) -> None:
     """
-    Process a dataset with transforms and save the results.
-    
+    Process a dataset with transforms and save the results.    
     Args:
-        data_dicts (list): List of dictionaries with image and label paths
+        data_dicts: List of dictionaries with image and label paths
         dataset_transform: MONAI transforms to apply
-        output_subdir (str): Subdirectory name for images/labels (e.g., 'imagesTr')
-        output_dir (str): Base output directory
+        output_subdir: Subdirectory name for images/labels (e.g., 'imagesTr')
+        output_dir: Base output directory
     """
     dataset = Dataset(data=data_dicts, transform=dataset_transform)
     
@@ -34,8 +43,7 @@ def process_dataset(data_dicts, dataset_transform, output_subdir, output_dir):
     images_dir = os.path.join(output_dir, output_subdir)
     labels_dir = os.path.join(output_dir, output_subdir.replace('images', 'labels'))
     os.makedirs(images_dir, exist_ok=True)
-    os.makedirs(labels_dir, exist_ok=True)
-    
+    os.makedirs(labels_dir, exist_ok=True)    
     print(f"Processing {len(dataset)} samples for {output_subdir}...")
     for i, sample in enumerate(tqdm(dataset, desc=f"Processing {output_subdir}", unit="sample")):
         base_name = os.path.splitext(os.path.basename(data_dicts[i]["image"]))[0]
@@ -51,14 +59,23 @@ def process_dataset(data_dicts, dataset_transform, output_subdir, output_dir):
         nib.save(nib.Nifti1Image(image, image_affine), os.path.join(images_dir, f"{base_name}.gz"))
         nib.save(nib.Nifti1Image(label, label_affine), os.path.join(labels_dir, f"{base_name}.gz"))
 
-        if i < 5:  # Visualize only the first 5 samples
-            visualize_preprocessed_image(image, label, f"/valohai/outputs/sample_{i}.png")
+        output_path = valohai.outputs("my-output").path(f"sample_{i}.png")
 
-            
-    
+        if i < 5:  # Visualize only the first 5 samples
+            visualize_preprocessed_image(image, label, output_path)
+
     print(f"Saved {len(dataset)} samples to {images_dir} and {labels_dir}")
 
-def preprocess_train_val(data_dir, labels_tr, output_dir):    
+
+def preprocess_train_val(data_dir: str, labels_tr: str, output_dir: str) -> None:    
+    """
+    Preprocess training and validation data.
+    
+    Args:
+        data_dir: Directory containing input images
+        labels_tr: Directory containing label masks
+        output_dir: Directory to save processed data
+    """
     # Process training and test data
     volumes = sorted(glob(os.path.join(data_dir, '*.nii*')))
     masks = sorted(glob(os.path.join(labels_tr, '*.nii*')))
@@ -117,47 +134,42 @@ def preprocess_train_val(data_dir, labels_tr, output_dir):
             json.dump({"file": file_name, "metadata": file_metadata}, outfile)
             outfile.write("\n")
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
     # Get the dataset .rar file path from Valohai
     dataset_archive = valohai.inputs('dataset').path(process_archives=False)
 
+    # Create a temporary directory for extraction
+    with tempfile.TemporaryDirectory() as temp_dir:
+        print(f"Created temporary directory at {temp_dir}")
+        
+        # Unpack the dataset to the temporary directory
+        if not os.path.exists(dataset_archive):
+            raise ValueError(f"Dataset archive {dataset_archive} does not exist.")
+        
+        print(f"Extracting {dataset_archive} to {temp_dir}")
 
-    # Create extraction directory
-    extract_dir = os.path.join(os.path.dirname(dataset_archive), "extracted_data")
-    os.makedirs(extract_dir, exist_ok=True)
-    
-    # Unpack the dataset
-    if not os.path.exists(dataset_archive):
-        raise ValueError(f"Dataset archive {dataset_archive} does not exist.")
-    
-    print(f"Extracting {dataset_archive} to {extract_dir}")
+        # Check zip or tar
+        if dataset_archive.endswith('.tar'):
+            shutil.unpack_archive(dataset_archive, extract_dir=temp_dir, format='tar')
+        elif dataset_archive.endswith('.zip'):
+            shutil.unpack_archive(dataset_archive, extract_dir=temp_dir, format='zip')
 
-    #Check zip or tar
-    if dataset_archive.endswith('.tar'):
-        shutil.unpack_archive(dataset_archive, extract_dir=extract_dir, format='tar')
-    elif dataset_archive.endswith('.zip'):
-        shutil.unpack_archive(dataset_archive, extract_dir=extract_dir, format='zip')
+        # Find paths to required directories in the temporary directory
+        imagesTr_path = glob(os.path.join(temp_dir, "**", "imagesTr"), recursive=True)
+        labelsTr_path = glob(os.path.join(temp_dir, "**", "labelsTr"), recursive=True)
 
-    
-    # Set paths to the extracted data folders
-    # Find paths to required directories
-    imagesTr_path = glob(os.path.join(extract_dir, "**", "imagesTr"), recursive=True)
-    labelsTr_path = glob(os.path.join(extract_dir, "**", "labelsTr"), recursive=True)
+        if not imagesTr_path or not labelsTr_path:
+            raise FileNotFoundError("imagesTr or labelsTr folder not found in extracted dataset.")
 
+        # Create output directory in the workspace
+        output_dir = os.path.join(os.getcwd(), "processed_data")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        set_determinism(seed=0)
 
-    if not imagesTr_path or not labelsTr_path:
-        raise FileNotFoundError("imagesTr or labelsTr folder not found in extracted dataset.")
-
-    # Create output directory
-    output_dir = os.path.join(os.getcwd(), "processed_data")
-    os.makedirs(output_dir, exist_ok=True)
-    
-    set_determinism(seed=0)
-    
-
-    preprocess_train_val(
-        data_dir=imagesTr_path[0],
-        labels_tr=labelsTr_path[0],
-        output_dir=output_dir
-    )
+        preprocess_train_val(
+            data_dir=imagesTr_path[0],
+            labels_tr=labelsTr_path[0],
+            output_dir=output_dir
+        )

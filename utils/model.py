@@ -1,13 +1,25 @@
+from typing import Sequence
 from monai.networks.nets import UNet
 
-def get_model_network(in_channels = 1, out_channels = 3, num_res_units=2, channels=(16, 32, 64, 128)):
+
+def get_model_network(
+    in_channels: int = 1,
+    out_channels: int = 3,
+    num_res_units: int = 2,
+    channels: Sequence[int] = (16, 32, 64, 128)
+) -> UNet:
     """
     Get the model network for training or inference.
-    
+
+    Args:
+        in_channels: Number of input channels
+        out_channels: Number of output channels
+        num_res_units: Number of residual units
+        channels: Sequence of channel numbers
+
     Returns:
-        UNet: A 3D UNet model instance
+        A 3D UNet model instance
     """
-    
     model = UNet(
         spatial_dims=3,
         in_channels=in_channels,
@@ -16,5 +28,5 @@ def get_model_network(in_channels = 1, out_channels = 3, num_res_units=2, channe
         strides=(2, 2, 2),
         num_res_units=num_res_units,
     )
-    
+
     return model
