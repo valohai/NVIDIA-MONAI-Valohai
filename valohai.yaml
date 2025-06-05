@@ -7,7 +7,8 @@
       - python preprocess.py
     inputs:
       - name: dataset
-        default: https://msd-for-monai.s3-us-west-2.amazonaws.com/Task03_Liver.tar #Input dataset tar/zip file
+        default: https://msd-for-monai.s3-us-west-2.amazonaws.com/Task03_Liver.tar
+        description: Input dataset as a tar/zip package
 - step:
     name: train
     image: nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
@@ -19,7 +20,8 @@
       - python3 train.py {parameters}
     inputs:
       - name: preprocessed_data
-        default: dataset://task03_liver/test #Preprocessed data in zip format
+        default: dataset://task03_liver/test 
+        description: Preprocessed data in a zip package
     parameters:
       - name: lr
         type: float
