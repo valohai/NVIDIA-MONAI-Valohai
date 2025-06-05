@@ -1,0 +1,11 @@
+# Core dependencies
+monai
+torch
+nibabel
+numpy
+matplotlib
+scikit-learn
+tqdm
+valohai-utils
+
+uv  # for compiling requirements 

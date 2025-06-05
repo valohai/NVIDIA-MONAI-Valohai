@@ -7,19 +7,19 @@
       - python preprocess.py
     inputs:
       - name: dataset
-        default: https://msd-for-monai.s3-us-west-2.amazonaws.com/Task03_Liver.tar
+        default: https://msd-for-monai.s3-us-west-2.amazonaws.com/Task03_Liver.tar #Input dataset tar/zip file
 - step:
     name: train
     image: nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
     environment: pro-trial-prod-oci-vm-gpu-a10-1
     command:
       - apt-get update && apt-get install -y python3-pip
-      - pip3 install torch==2.2.1+cu118 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+      - pip3 install torch==2.7.1+cu118 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
       - pip3 install -r requirements.txt
       - python3 train.py {parameters}
     inputs:
       - name: preprocessed_data
-        default: dataset://task03_liver/test
+        default: dataset://task03_liver/test #Preprocessed data in zip format
     parameters:
       - name: lr
         type: float
@@ -50,7 +50,7 @@
     environment: pro-trial-prod-oci-vm-gpu-a10-1
     command:
       - apt-get update && apt-get install -y python3-pip
-      - pip3 install torch==2.2.1+cu118 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+      - pip3 install torch==2.7.1+cu118 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
       - pip3 install -r requirements.txt
       - python3 evaluate.py
     inputs:
