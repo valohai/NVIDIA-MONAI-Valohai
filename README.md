@@ -64,6 +64,9 @@ This pipeline automates the full workflow for medical image segmentation using a
 
   * Prediction masks in NIfTI format (`.nii.gz`)
   * Visualization snapshots for qualitative analysis
+  * Example of visualized output
+    ![image](https://github.com/user-attachments/assets/3f85fd01-26c1-4981-820f-fecd0ae46782)
+
 
 ### Run the pipeline
 vh pipeline run train_and_evaluate
