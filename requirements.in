@@ -1,3 +1,4 @@
+-c constraints.txt
 # Core dependencies
 monai
 torch
@@ -7,5 +8,3 @@ matplotlib
 scikit-learn
 tqdm
 valohai-utils
-
-uv  # for compiling requirements 
